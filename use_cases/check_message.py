@@ -18,5 +18,5 @@ class CheckMessageUseCase:
         self.llm_rewrite = rewrite
 
     def execute(self, message: BotMessage) -> CheckResult:
-        r1 = self.llm_rewrite.process("Hello")
+        r1 = self.llm_rewrite.process(message)
         return CheckResult(True, [], 0, "", message.answer)

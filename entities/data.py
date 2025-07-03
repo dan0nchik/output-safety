@@ -4,6 +4,7 @@ from typing import List
 
 @dataclass
 class BotMessage:
+    question: str
     answer: str
 
 
