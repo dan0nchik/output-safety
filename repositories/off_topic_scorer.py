@@ -13,9 +13,12 @@ class OffTopicRepository(IMLServiceRepository):
         model: Модель для генерации текстовых эмбеддингов.
     """
 
-    def __init__(self):
+    def __init__(self, model_name: str):
         """Инициализирует модель для генерации эмбеддингов."""
-        self.model = SentenceTransformer("paraphrase-albert-small-v2")  # Легкая модель для эмбеддингов
+        self.model_name = model_name
+        self.model = SentenceTransformer(
+            self.model_name,
+        )  # Легкая модель для эмбеддингов
 
     def process(self, message: BotMessage) -> ServiceCheckResult:
         """Обрабатывает сообщение и проверяет релевантность ответа.
@@ -43,16 +46,3 @@ class OffTopicRepository(IMLServiceRepository):
         is_safe = score >= 0.5
 
         return ServiceCheckResult(is_safe, score, message.answer)
-
-
-if __name__ == "__main__":
-    """Пример тестирования репозитория.
-    
-    Чем ближе score к 1, тем более релевантен ответ.
-    """
-    str1 = "Let's talk about London."
-    str2 = "London is the capital of Great Britain."
-    msg = BotMessage(str1, str2)
-    service1 = OffTopicRepository()
-    result = service1.process(msg)
-    print(result)
