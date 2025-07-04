@@ -1,4 +1,4 @@
-from entities.data import CheckResult, BotMessage
+from entities.data import ServiceCheckResult, BotMessage
 from use_cases.ports.ml_service import IMLServiceRepository
 
 import re
@@ -90,7 +90,7 @@ def build_ml_pipeline() -> Pipeline:
     return pipeline
 
 class AdFilterRepository(IMLServiceRepository):
-    def process(self, message: BotMessage) -> CheckResult:
+    def process(self, message: BotMessage) -> ServiceCheckResult:
         preproc = TextPreprocessor(language='ru')
         rules = RuleEngine(RULES)
         ml_pipeline = build_ml_pipeline()

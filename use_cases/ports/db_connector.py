@@ -1,5 +1,4 @@
 from abc import abstractmethod, ABC
-from entities.data import CheckResult
 
 
 class IDBRepository(ABC):

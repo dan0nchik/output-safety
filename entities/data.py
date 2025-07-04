@@ -8,6 +8,7 @@ class BotMessage:
     answer: str
 
 
+@dataclass
 class ViolationLevel:
     LOW = 1
     MEDIUM = 2
@@ -15,16 +16,37 @@ class ViolationLevel:
 
 
 @dataclass
-class Violation:
-    violation_type: str
-    level: ViolationLevel
-    message: str
+class ViolationType:
+    OFF_TOPIC = "off_topic"
+    PII = "pii"
+    AD = "ad"
+    SAFETY = "safety"
+
+
+@dataclass(frozen=True)
+class LLMRequest:
+    prompt: str  # переменные в промпте всавлять в виде {variable_name}
+    model: str
 
 
 @dataclass
-class CheckResult:
+class Violation:
+    violation_type: ViolationType
+    level: ViolationLevel
+
+
+# result per service
+@dataclass
+class ServiceCheckResult:
+    safe: bool
+    score: int
+    masked_answer: str
+
+
+# final result after decision engine
+@dataclass
+class FinalCheckResult:
     safe: bool
     violations: List[Violation]
     score: int
-    actions: str
     masked_answer: str
