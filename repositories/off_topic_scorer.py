@@ -24,11 +24,9 @@ class OffTopicRepository(IMLServiceRepository):
             message: Объект сообщения с вопросом и ответом для проверки.
 
         Returns:
-            CheckResult: Результат проверки, содержащий:
+            ServiceCheckResult: Результат проверки, содержащий:
                 - Флаг is_safe (True если ответ релевантен)
-                - Пустой список нарушений
                 - Значение косинусного сходства
-                - Пустую строку (нет сообщения об ошибке)
                 - Исходный ответ
         """
         str1 = message.question
