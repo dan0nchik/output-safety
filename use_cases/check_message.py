@@ -1,5 +1,5 @@
 from entities.data import BotMessage, FinalCheckResult, LLMRequest
-from ports.ml_service import IMLServiceRepository, ILLMRewriteRepository
+from use_cases.ports.ml_service import IMLServiceRepository, ILLMRewriteRepository
 
 
 class CheckMessageUseCase:
@@ -22,4 +22,4 @@ class CheckMessageUseCase:
     def execute(self, message: BotMessage) -> FinalCheckResult:
         # TODO проверка decision engine
         llm_check = self.llm_rewrite.process(message, self.llm_request)
-        return FinalCheckResult()
+        return FinalCheckResult(True, [], 0, "")
