@@ -43,6 +43,7 @@ python3 ./repositories/llm_rewrite.py
 - Перед комитом прогоняем Ruff форматирование
 - Текст коммита на английском
 - Название коммита: для фичи — `feat: <название>`, для багфикса — `fix: <название>`.
+- Комменты: https://google.github.io/styleguide/pyguide.html#38-comments-and-docstrings
 
 ## Структура проекта
 
