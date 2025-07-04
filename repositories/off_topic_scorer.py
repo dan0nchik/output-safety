@@ -17,18 +17,16 @@ class OffTopicRepository(IMLServiceRepository):
         """Инициализирует модель для генерации эмбеддингов."""
         self.model = SentenceTransformer("paraphrase-albert-small-v2")  # Легкая модель для эмбеддингов
 
-    def process(self, message: BotMessage) -> CheckResult:
+    def process(self, message: BotMessage) -> ServiceCheckResult:
         """Обрабатывает сообщение и проверяет релевантность ответа.
 
         Args:
             message: Объект сообщения с вопросом и ответом для проверки.
 
         Returns:
-            CheckResult: Результат проверки, содержащий:
+            ServiceCheckResult: Результат проверки, содержащий:
                 - Флаг is_safe (True если ответ релевантен)
-                - Пустой список нарушений
                 - Значение косинусного сходства
-                - Пустую строку (нет сообщения об ошибке)
                 - Исходный ответ
         """
         str1 = message.question
@@ -44,7 +42,7 @@ class OffTopicRepository(IMLServiceRepository):
         # Пороговое значение для определения релевантности (0.5 - примерное значение)
         is_safe = score >= 0.5
 
-        return CheckResult(is_safe, [], score, "", message.answer)
+        return ServiceCheckResult(is_safe, score, message.answer)
 
 
 if __name__ == "__main__":
