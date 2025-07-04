@@ -1,22 +1,25 @@
-from entities.data import BotMessage, CheckResult
-from repositories.ad_filter import AdFilterRepository
-from repositories.llm_rewrite import LLMRewriteRepository
-from repositories.off_topic_scorer import OffTopicRepository
-from repositories.pii_detector import PIIDetectorRepository
-from repositories.safety_classifier import SafetyClassifierRepository
+from entities.data import BotMessage, FinalCheckResult, LLMRequest
+from ports.ml_service import IMLServiceRepository, ILLMRewriteRepository
 
 
 class CheckMessageUseCase:
     def __init__(
         self,
-        pii: PIIDetectorRepository,
-        safety: SafetyClassifierRepository,
-        ad: AdFilterRepository,
-        off_topic: OffTopicRepository,
-        rewrite: LLMRewriteRepository,
+        pii: IMLServiceRepository,
+        safety: IMLServiceRepository,
+        ad: IMLServiceRepository,
+        off_topic: IMLServiceRepository,
+        rewrite: ILLMRewriteRepository,
+        llm_request: LLMRequest,
     ):
         self.llm_rewrite = rewrite
+        self.pii = pii
+        self.safety = safety
+        self.ad = ad
+        self.off_topic = off_topic
+        self.llm_request = llm_request
 
-    def execute(self, message: BotMessage) -> CheckResult:
-        r1 = self.llm_rewrite.process(message)
-        return CheckResult(True, [], 0, "", message.answer)
+    def execute(self, message: BotMessage) -> FinalCheckResult:
+        # TODO проверка decision engine
+        llm_check = self.llm_rewrite.process(message, self.llm_request)
+        return FinalCheckResult()
