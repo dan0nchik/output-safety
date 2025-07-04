@@ -16,7 +16,12 @@ def get_check_use_case() -> CheckMessageUseCase:
     ad = AdFilterRepository()
     off_topic = OffTopicRepository()
     llm_rewrite = OllamaRewriteRepository()
-    llm_request = LLMRequest(prompt="перепиши текст", model="llama3.1")
+    llm_request = LLMRequest(
+        prompt="перепиши текст",
+        model="llama3.1",
+        ollama_host="http://localhost:11434",
+        api_key=None,
+    )
     return CheckMessageUseCase(pii, safety, ad, off_topic, llm_rewrite, llm_request)
 
 

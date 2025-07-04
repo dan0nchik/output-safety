@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional
 
 
 @dataclass
@@ -26,7 +26,9 @@ class ViolationType:
 @dataclass(frozen=True)
 class LLMRequest:
     prompt: str  # переменные в промпте всавлять в виде {variable_name}
-    model: str
+    model: Optional[str]
+    ollama_host: Optional[str]
+    api_key: Optional[str]
 
 
 @dataclass
