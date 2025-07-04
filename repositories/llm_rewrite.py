@@ -4,8 +4,7 @@ from use_cases.ports.ml_service import IMLServiceRepository
 
 class LLMRewriteRepository(IMLServiceRepository):
     def process(self, message: BotMessage) -> CheckResult:
-        # TODO
-        pass
+        return CheckResult(True, [], 0, "", message.answer)
 
 
 # Пример тестирования репозитория
