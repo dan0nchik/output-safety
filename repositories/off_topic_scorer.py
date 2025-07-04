@@ -1,4 +1,4 @@
-from entities.data import CheckResult, BotMessage
+from entities.data import ServiceCheckResult, BotMessage
 from use_cases.ports.ml_service import IMLServiceRepository
 from sentence_transformers import SentenceTransformer, util
 
