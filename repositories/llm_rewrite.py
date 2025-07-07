@@ -9,7 +9,7 @@ class OllamaRewriteRepository(ILLMRewriteRepository):
 
     def process(self, message: BotMessage, request: LLMRequest) -> ServiceCheckResult:
         self.final_prompt = request.prompt.replace("{answer}", message.answer)
-        client = Client(host="http://ithse.ru:11434")
+        client = Client(host=request.ollama_host)
         response = client.chat(
             model=request.model,
             messages=[
@@ -24,16 +24,3 @@ class OllamaRewriteRepository(ILLMRewriteRepository):
             score=1,
             masked_answer=response["message"]["content"],
         )
-
-
-# Пример тестирования репозитория
-msg = BotMessage("привет я лох", "привет! ты лошара ваще лютый")
-service1 = OllamaRewriteRepository()
-result = service1.process(
-    msg,
-    LLMRequest(
-        prompt="убери из ответа нецензурные слова: {answer}",
-        model="qwen2.5:14b",
-    ),
-)
-print(result)
