@@ -3,3 +3,4 @@ sentence_transformers
 ollama~=0.5.1
 pydantic~=2.11.7
 pydantic-settings
+langdetect ~= 1.0.3
