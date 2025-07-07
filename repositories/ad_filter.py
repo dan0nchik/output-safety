@@ -25,25 +25,26 @@ PIPELINE:
 
 # example rules for 'rule engine'
 RULES = {
-    'promo': [r'\bскидк[а-я]*\b', r'\bакция\b', r'\bподарок\b'],
-    'competitor': [r'\bбренд1\b', r'\bконкурент2\b', r'\bcompetitor-site\.com\b']
+    "promo": [r"\bскидк[а-я]*\b", r"\bакция\b", r"\bподарок\b"],
+    "competitor": [r"\bбренд1\b", r"\bконкурент2\b", r"\bcompetitor-site\.com\b"],
 }
 
+
 class TextPreprocessor:
-    def __init__(self, language: str = 'ru'):
-        if language == 'ru':
-            self.nlp = spacy.load('ru_core_news_sm')
+    def __init__(self, language: str = "ru"):
+        if language == "ru":
+            self.nlp = spacy.load("ru_core_news_sm")
             self.morph = MorphAnalyzer()
             self.stopwords = spacy.lang.ru.stop_words.STOP_WORDS
         else:
-            self.nlp = spacy.load('en_core_web_sm')
+            self.nlp = spacy.load("en_core_web_sm")
             self.morph = None
             self.stopwords = spacy.lang.en.stop_words.STOP_WORDS
 
     def clean_text(self, text: str) -> str:
-        text = re.sub(r'<[^>]+>', ' ', text)
-        text = re.sub(r'http\S+|www\.\S+', ' ', text)
-        text = text.translate(str.maketrans('', '', string.punctuation))
+        text = re.sub(r"<[^>]+>", " ", text)
+        text = re.sub(r"http\S+|www\.\S+", " ", text)
+        text = text.translate(str.maketrans("", "", string.punctuation))
         text = text.lower()
         return text
 
@@ -64,8 +65,9 @@ class TextPreprocessor:
     def preprocess(self, text: str) -> str:
         cleaned = self.clean_text(text)
         tokens = self.tokenize(cleaned)
-        return ' '.join(tokens)
-    
+        return " ".join(tokens)
+
+
 class RuleEngine:
     def __init__(self, rules: Dict[str, List[str]]):
         self.compiled = {
@@ -81,22 +83,23 @@ class RuleEngine:
                     matches.append(label)
                     break
         return matches
-    
+
+
 def build_ml_pipeline() -> Pipeline:
-    pipeline = Pipeline([
-        ('tfidf', TfidfVectorizer()),
-        ('clf', LogisticRegression(solver='liblinear'))
-    ])
+    pipeline = Pipeline(
+        [("tfidf", TfidfVectorizer()), ("clf", LogisticRegression(solver="liblinear"))]
+    )
     return pipeline
+
 
 class AdFilterRepository(IMLServiceRepository):
     def process(self, message: BotMessage) -> ServiceCheckResult:
-        preproc = TextPreprocessor(language='ru')
+        preproc = TextPreprocessor(language="ru")
         rules = RuleEngine(RULES)
         ml_pipeline = build_ml_pipeline()
 
         cleaned_texts = [preproc.preprocess(t) for t in message]
-        labels = ['promo', 'competitor', 'normal']
+        labels = ["promo", "competitor", "normal"]
         # TODO: THE SEPERATE SERVICE FOR MODEL'S FITTING
 
         # TODO: APPLIEMENT OF THE AD & COMPETITOR SERVICE
