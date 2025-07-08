@@ -3,10 +3,6 @@ sentence_transformers==2.2.2
 ollama~=0.5.1
 pydantic~=2.11.7
 pydantic-settings
-lingua-language-detector
-# --- Для PII/NERUS ---
-deeppavlov==1.1.0
-torch==1.13.1
-transformers==4.22.2
-torchcrf==1.1.0
+transformers
+torch
 pytest
