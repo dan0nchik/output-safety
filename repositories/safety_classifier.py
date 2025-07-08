@@ -1,9 +1,9 @@
 import torch
 import torch.nn.functional as F
 from entities.data import ServiceCheckResult, BotMessage
-from langdetect import detect, DetectorFactory
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from use_cases.ports.ml_service import IMLServiceRepository
+from lingua import Language, LanguageDetectorBuilder
 
 """
 SAFETY CLASSIFIER MODULE
@@ -12,8 +12,8 @@ Purpose:
 This module implements a safety classification service for Telegram bot messages to detect harmful, toxic, or disturbing content in user responses. It supports both English and Russian languages.
 
 Models:
-- English: "bert-base-uncased" — a general-purpose BERT model from HuggingFace used for binary classification (non-toxic vs. toxic).
-- Russian: "DeepPavlov/rubert-base-cased" — a Russian-language BERT model from DeepPavlov. Supports multilabel classification for various toxicity types (e.g., obscene, insult, threat).
+- English: "ujjawalsah/bert-toxicity-classifier" — a general-purpose BERT model from HuggingFace used for binary classification (non-toxic vs. toxic).
+- Russian: "cointegrated/rubert-tiny-toxicity" — a Russian-language BERT model from DeepPavlov. Supports multilabel classification for various toxicity types (e.g., obscene, insult, threat).
 
 Pipeline Overview:
 1. Language Detection — detects whether the message is in English or Russian using `langdetect`.
@@ -21,101 +21,94 @@ Pipeline Overview:
 3. Classification:
    - For English: uses softmax on logits to obtain the probability of toxic content.
    - For Russian: uses sigmoid activation to evaluate multiple toxicity labels, then takes the highest probability among toxic labels.
-4. Thresholding — if the toxicity score is above 0.3, the message is considered harmful.
-5. Masking — if harmful, suspicious words are masked in the output (with "***") based on individual word-level toxicity estimation.
-
+4. Thresholding — if the toxicity score is above 0.1, the message is considered harmful.
 """
 
-DetectorFactory.seed = 42
+detector = LanguageDetectorBuilder.from_languages(Language.ENGLISH, Language.RUSSIAN).build()
 
-# === Английская модель: HateBERT ===
-en_model_name = "bert-base-uncased"
-en_tokenizer = AutoTokenizer.from_pretrained(en_model_name)
-en_model = AutoModelForSequenceClassification.from_pretrained(en_model_name)
+def detect_language(text: str) -> str:
+    lang = detector.detect_language_of(text)
+    if lang == Language.ENGLISH:
+        return "en"
+    elif lang == Language.RUSSIAN:
+        return "ru"
+    return "unknown"
+
+EN_MODEL_NAME = "ujjawalsah/bert-toxicity-classifier"
+RU_MODEL_NAME = "cointegrated/rubert-tiny-toxicity"
+
+en_tokenizer = AutoTokenizer.from_pretrained(EN_MODEL_NAME)
+en_model = AutoModelForSequenceClassification.from_pretrained(EN_MODEL_NAME)
 en_model.eval()
 
-# === Русская модель: ruBERT-Toxicity ===
-ru_model_name = "DeepPavlov/rubert-base-cased"
-ru_tokenizer = AutoTokenizer.from_pretrained(ru_model_name)
-ru_model = AutoModelForSequenceClassification.from_pretrained(ru_model_name)
+ru_tokenizer = AutoTokenizer.from_pretrained(RU_MODEL_NAME)
+ru_model = AutoModelForSequenceClassification.from_pretrained(RU_MODEL_NAME)
 ru_model.eval()
 
+# Метки моделей
+EN_LABELS = ["toxic", "obscene", "insult", "threat", "identity_hate"]
+RU_LABELS = ["non-toxic", "insult", "obscenity", "threat", "dangerous"]
 
 class SafetyClassifierRepository(IMLServiceRepository):
     def process(self, message: BotMessage) -> ServiceCheckResult:
         txt = message.answer
-        try:
-            lang = detect(txt)
-        except:
-            lang = "unknown"
-        if lang == "ru":
-            score = predict_toxicity_ru(txt)
-        elif lang == "en":
-            score = predict_hate_speech_en(txt)
+        lang = detect_language(txt)
 
+        if lang == "en":
+            score_map = predict_toxicity_en(txt)
+            tox_score = max(score_map.values())
+        elif lang == "ru":
+            score_map = predict_toxicity_ru(txt)
+            tox_score = max([v for k, v in score_map.items() if k != "non-toxic"])
         else:
-            score = 0.0
-        if score >= 0.3:
-            return ServiceCheckResult(False, score, mask_toxic_fragments(txt))
-        else:
-            return ServiceCheckResult(True, score, txt)
+            tox_score = 0.0
+            score_map = {"unknown": 0.0}
+        return ServiceCheckResult(is_toxic(tox_score),tox_score,txt)
 
-
-def predict_hate_speech_en(text: str) -> float:
+def is_toxic(score) -> bool:
+    if score >= 0.1:
+        return False
+    else:
+        return True
+def predict_toxicity_en(text: str) -> dict:
     inputs = en_tokenizer(text, return_tensors="pt", truncation=True, padding=True, max_length=512)
     with torch.no_grad():
-        outputs = en_model(**inputs)
-        probs = F.softmax(outputs.logits, dim=1)
-    return probs[0, 1].item()
+        logits = en_model(**inputs).logits.squeeze()
+        probs = torch.sigmoid(logits).tolist()
+    return dict(zip(EN_LABELS, probs))
 
-
-def predict_toxicity_ru(text: str) -> float:
+def predict_toxicity_ru(text: str) -> dict:
     inputs = ru_tokenizer(text, return_tensors="pt", truncation=True, padding=True, max_length=512)
     with torch.no_grad():
-        logits = ru_model(**inputs).logits
-        probs = torch.sigmoid(logits).squeeze().tolist()
-    return max(probs[1:])  # пропускаем non-toxic
+        logits = ru_model(**inputs).logits.squeeze()
+        probs = torch.sigmoid(logits).tolist()
+    return dict(zip(RU_LABELS, probs))
 
-
-def mask_toxic_fragments(text: str, threshold: float = 0.5) -> str:
-    try:
-        lang = detect(text)
-    except:
-        lang = "unknown"
-
+def mask_toxic_fragments(text: str, lang: str, threshold: float = 0.5) -> str:
     words = text.split()
     masked = []
 
     for word in words:
-        if lang == "ru":
-            tokenizer = ru_tokenizer
-            model = ru_model
+        if lang == "en":
+            inputs = en_tokenizer(word, return_tensors="pt", truncation=True, padding=True)
             with torch.no_grad():
-                inputs = tokenizer(word, return_tensors="pt", truncation=True, padding=True)
-                logits = model(**inputs).logits
-                probs = torch.sigmoid(logits).squeeze().tolist()
-                toxicity_score = max(probs[1:])
-        elif lang == "en":
-            tokenizer = en_tokenizer
-            model = en_model
+                logits = en_model(**inputs).logits.squeeze()
+                probs = torch.sigmoid(logits).tolist()
+            score = max(probs)
+        elif lang == "ru":
+            inputs = ru_tokenizer(word, return_tensors="pt", truncation=True, padding=True)
             with torch.no_grad():
-                inputs = tokenizer(word, return_tensors="pt", truncation=True, padding=True)
-                logits = model(**inputs).logits
-                probs = F.softmax(logits, dim=1)
-                toxicity_score = probs[0, 1].item()
+                logits = ru_model(**inputs).logits.squeeze()
+                probs = torch.sigmoid(logits).tolist()
+            score = max(probs[1:])  # пропускаем "non-toxic"
         else:
             masked.append(word)
             continue
 
-        if toxicity_score > threshold:
-            masked.append("***")
-        else:
-            masked.append(word)
+        masked.append("***" if score > threshold else word)
 
-    return ' '.join(masked)
+    return " ".join(masked)
 
-
-# === Пример CLI-проверки ===
 if __name__ == "__main__":
     test_messages = [
         BotMessage(question="Тестовое сообщение",
@@ -126,9 +119,8 @@ if __name__ == "__main__":
         BotMessage(question="Тестовое сообщение", answer="Go away"),
         BotMessage(question="Тестовое сообщение", answer="Иди к чёрту"),
     ]
+
     classifier = SafetyClassifierRepository()
     for msg in test_messages:
-        serviceCheckResult = classifier.process(msg)
         print(f"📝 {msg.answer}")
-        print(f"   ➤ Токсичность: {serviceCheckResult.score:.4f}")
-        print(f"   ➤ Защита: {serviceCheckResult.masked_answer}\n")
+        print( classifier.process(msg).score)
