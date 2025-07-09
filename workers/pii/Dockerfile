@@ -9,7 +9,7 @@ WORKDIR /app
 #     && rm -rf /var/lib/apt/lists/*
 
 # Copy and install Python dependencies
-COPY requirements.txt .
+COPY workers/pii/requirements.txt requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy code for worker and shared modules

@@ -4,7 +4,7 @@ FROM python:3.10-slim
 WORKDIR /app
 
 # Copy and install Python dependencies
-COPY requirements.txt .
+COPY workers/safety/requirements.txt requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 # Copy code for worker and shared modules
 COPY workers/safety/safety_worker.py   workers/safety/safety_worker.py
