@@ -11,6 +11,8 @@ from pymorphy2 import MorphAnalyzer
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
+import pickle
+from config import ad_filter_model_name
 
 """
 SERVICE FOR DETECTING AD & COMPETITOR INFORMATION
@@ -90,13 +92,28 @@ def build_ml_pipeline() -> Pipeline:
     return pipeline
 
 class AdFilterRepository(IMLServiceRepository):
+    def __init__(self):
+        self.filename = ad_filter_model_name
+        with open(self.filename, 'rb') as file:
+            self.model = pickle.load(file)
+         
+
     def process(self, message: BotMessage) -> ServiceCheckResult:
-        preproc = TextPreprocessor(language='ru')
-        rules = RuleEngine(RULES)
-        ml_pipeline = build_ml_pipeline()
+        text = message.answer or ""
+        proba = float(self.model.predict_proba([text])[0, 1])
+        label = 1 if proba >= 0.5 else 0
+        return ServiceCheckResult(label, proba, message.answer)
+    
 
-        cleaned_texts = [preproc.preprocess(t) for t in message]
-        labels = ['promo', 'competitor', 'normal']
-        # TODO: THE SEPERATE SERVICE FOR MODEL'S FITTING
+if __name__ == "__main__":
+    from entities.data import BotMessage
 
-        # TODO: APPLIEMENT OF THE AD & COMPETITOR SERVICE
+    # Интерактивный режим
+    question = input("Введите вопрос: ")
+    answer = input("Введите ответ: ")
+    message = BotMessage(question=question, answer=answer)
+    detector = AdFilterRepository()
+    result = detector.process(message)
+    print("Safe:", result.safe)
+    print("Score:", result.score)
+    print("Masked answer:", result.masked_answer)
