@@ -1,39 +1,30 @@
-from fastapi import FastAPI, HTTPException, Depends
-from entities.data import BotMessage, LLMRequest, FinalCheckResult
+# presentation/api.py
+from fastapi import FastAPI, Depends, HTTPException
+from entities.data import BotMessage
 from use_cases.check_message import CheckMessageUseCase
-from repositories.llm_rewrite import OllamaRewriteRepository
-from repositories.pii_detector import PIIDetectorRepository
-from repositories.ad_filter import AdFilterRepository
-from repositories.off_topic_scorer import OffTopicRepository
-from repositories.safety_classifier import SafetyClassifierRepository
+from use_cases.ports.event_bus import EventBus
+from repositories.kafka_bus import KafkaEventBus
 from config import settings
 
-app = FastAPI(title="Output Safety API", version="1.0", debug=True)
+app = FastAPI(title="Output Safety API", debug=True)
 
 
-def get_check_use_case() -> CheckMessageUseCase:
-    pii = PIIDetectorRepository()
-    safety = SafetyClassifierRepository()
-    ad = AdFilterRepository(model_path=settings.ad_filter_model_name)
-    off_topic = OffTopicRepository(settings.off_topic_model_name)
-    llm_rewrite = OllamaRewriteRepository()
-    llm_request = LLMRequest(
-        prompt=settings.ollama_prompt,
-        model=settings.ollama_model_name,
-        ollama_host=settings.ollama_base_url,
-        api_key=None,
-    )
-    return CheckMessageUseCase(pii, safety, ad, off_topic, llm_rewrite, llm_request)
+async def get_event_bus() -> EventBus:
+    return KafkaEventBus(brokers=settings.kafka_brokers)
 
 
-@app.post("/check", response_model=FinalCheckResult, summary="Check message safety")
-def check_endpoint(
-    payload: BotMessage, use_case: CheckMessageUseCase = Depends(get_check_use_case)
+async def get_enqueue_uc(bus: EventBus = Depends(get_event_bus)) -> CheckMessageUseCase:
+    return CheckMessageUseCase(event_bus=bus)
+
+
+@app.post("/check", status_code=202)
+async def check_endpoint(
+    payload: BotMessage,
+    uc: CheckMessageUseCase = Depends(get_enqueue_uc),
 ):
     try:
-        return use_case.execute(payload)
+        request_id = await uc.enqueue(payload)
+        return {"request_id": request_id}
     except Exception as e:
-        print(e)
-        raise HTTPException(
-            status_code=500, detail="Internal error while checking message"
-        )
+        # send real error in dev; hide in prod
+        raise HTTPException(status_code=500, detail=str(e))

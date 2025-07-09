@@ -10,3 +10,4 @@ uvicorn
 spacy
 pymorphy2
 lingua-language-detector
+aiokafka

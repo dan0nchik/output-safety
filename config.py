@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     ad_filter_model_name: str = Field(
         "models/ad_filter.pkl", alias="AD_FILTER_MODEL_NAME"
     )
+    kafka_brokers: str = Field("kafka:9092", alias="KAFKA_BROKERS")
 
 
 settings = Settings()
