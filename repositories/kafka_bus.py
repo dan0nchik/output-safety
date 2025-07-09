@@ -40,8 +40,7 @@ class KafkaEventBus(EventBus):
         await consumer.start()
         try:
             async for record in consumer:
-                msg = BotMessage(**record.value)
                 hdrs = {k: v.decode() for k, v in record.headers or []}
-                await handler(msg, hdrs)
+                await handler(record.value, hdrs)
         finally:
             await consumer.stop()
