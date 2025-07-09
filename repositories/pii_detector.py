@@ -28,9 +28,10 @@ class PIIDetectorRepository(IMLServiceRepository):
     PASSPORT_REGEX = re.compile(r"(\b\d{4}\s?\d{6}\b|\b\d{10}\b)")
     PASSPORT_SERIES_REGEX = re.compile(r"серия\s*\d{4}", re.IGNORECASE)
     PASSPORT_NUMBER_REGEX = re.compile(r"номер\s*\d{6}", re.IGNORECASE)
-
+    print("PIIDetector initialized with regex patterns")
     # --- HuggingFace NER pipeline initialization ---
     _ner_pipe = pipeline("ner", model="Gherman/bert-base-NER-Russian")
+    print("NER pipeline initialized")
 
     def _find_phone(self, text: str) -> List[dict]:
         found = []
@@ -137,6 +138,7 @@ class PIIDetectorRepository(IMLServiceRepository):
     def process(self, message: BotMessage) -> ServiceCheckResult:
         from entities.data import Violation, ViolationLevel
 
+        print("Processing message:", message)
         texts = [("question", message.question), ("answer", message.answer)]
         all_matches = []
         violations = []

@@ -1,6 +1,6 @@
 import asyncio
 from repositories.kafka_bus import KafkaEventBus
-from repositories.pii_detector import PIIDetectorRepository
+from repositories.safety_classifier import SafetyClassifierRepository
 from entities.data import BotMessage, ServiceCheckResult
 from config import settings
 
@@ -10,7 +10,7 @@ async def handle(message: BotMessage, headers: dict):
         return
     print(message)
     # 1) run the PII adapter
-    result: ServiceCheckResult = PIIDetectorRepository().process(message)
+    result: ServiceCheckResult = SafetyClassifierRepository().process(message)
     print(result)
     # 2) publish partial result back
     await bus.publish(
