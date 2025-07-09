@@ -40,7 +40,7 @@ class Violation(BaseModel):
     A single detected violation.
     """
 
-    violation_type: ViolationType
+    violation_type: str
     level: ViolationLevel
 
 

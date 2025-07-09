@@ -1,13 +1,5 @@
-fastapi
-sentence_transformers
-ollama
-pydantic
+fastapi>=0.95.0
+uvicorn[standard]>=0.22.0
+aiokafka>=0.8.0
+pydantic>=1.10.0
 pydantic-settings
-transformers
-torch
-pytest
-uvicorn
-spacy
-pymorphy2
-lingua-language-detector
-aiokafka
