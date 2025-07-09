@@ -123,7 +123,7 @@ def predict_toxicity_ru(text: str) -> dict:
         return {label: 0.0 for label in ru_labels}
 
 
-def is_toxic(score: float, threshold: float = 0.1) -> bool:
+def is_toxic(score: float, threshold: float = 0.3) -> bool:
     # True => safe (below threshold), False => toxic
     return score < threshold
 
@@ -152,32 +152,7 @@ class SafetyClassifierRepository(IMLServiceRepository):
         logger.info(
             "Result safe=%s, score=%.4f, scores=%s", safe_flag, tox_score, scores
         )
-        return ServiceCheckResult(safe=safe_flag, score=tox_score, masked_answer=txt)
-
-
-def mask_toxic_fragments(text: str, lang: str, threshold: float = 0.5) -> str:
-    words = text.split()
-    masked = []
-    for word in words:
-        try:
-            if lang == "en":
-                probs = safe_sigmoid(
-                    en_model(**en_tokenizer(word, return_tensors="pt")).logits
-                )
-                score = max(probs)
-            elif lang == "ru":
-                probs = safe_sigmoid(
-                    ru_model(**ru_tokenizer(word, return_tensors="pt")).logits
-                )
-                score = max(probs[1:])  # skip "non-toxic"
-            else:
-                masked.append(word)
-                continue
-            masked.append("***" if score > threshold else word)
-        except Exception:
-            masked.append(word)
-    return " ".join(masked)
-
+        return ServiceCheckResult(safe=safe_flag, score=tox_score, masked_answer=txt if safe_flag else "Извини,я не могу ответить")
 
 # Self-test when run as a script
 if __name__ == "__main__":

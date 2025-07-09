@@ -1,27 +1,30 @@
 version: '3.8'
 services:
 
-  # ─── Kafka infrastructure ───────────────────────────────────────────────
-
+  # ─── Zookeeper ──────────────────────────────────────────────────────────
   zookeeper:
     image: confluentinc/cp-zookeeper:7.4.1
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
-    networks: [backend]
+    network_mode: host
 
+  # ─── Kafka ──────────────────────────────────────────────────────────────
   kafka:
-    image: confluentinc/cp-kafka:7.4.1
-    depends_on: [zookeeper]
     ports:
       - "9092:9092"
+    image: confluentinc/cp-kafka:7.4.1
+    depends_on: [zookeeper]
+    network_mode: host
     environment:
       KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_ZOOKEEPER_CONNECT: 127.0.0.1:2181
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
-    networks: [backend]
     healthcheck:
       test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
       interval: 10s
@@ -29,7 +32,6 @@ services:
       retries: 10
 
   # ─── API ────────────────────────────────────────────────────────────────
-
   api:
     build:
       context: .
@@ -37,72 +39,12 @@ services:
     depends_on:
       - kafka
     environment:
-      - KAFKA_BROKERS=kafka:9092
+      - KAFKA_BROKERS=0.0.0.0:9092
     ports:
       - "8000:8000"
     networks:
       - backend
 
-  # ─── WORKERS ────────────────────────────────────────────────────────────
-
-  pii_worker:
-    build:
-      context: .
-      dockerfile: workers/pii/Dockerfile
-    depends_on:
-      kafka:
-        condition: service_healthy
-    environment:
-      - KAFKA_BROKERS=kafka:9092
-    networks:
-      - backend
-
-  safety_worker:
-    build:
-      context: .
-      dockerfile: workers/safety/Dockerfile
-    depends_on:
-      kafka:
-        condition: service_healthy
-    environment:
-      - KAFKA_BROKERS=kafka:9092
-    networks:
-      - backend
-
-  ad_worker:
-    build:
-      context: .
-      dockerfile: workers/ad/Dockerfile
-    depends_on:
-      kafka:
-        condition: service_healthy
-    environment:
-      - KAFKA_BROKERS=kafka:9092
-    networks:
-      - backend
-
-  offtopic_worker:
-    build:
-      context: .
-      dockerfile: workers/offtopic/Dockerfile
-    depends_on:
-      kafka:
-        condition: service_healthy
-    environment:
-      - KAFKA_BROKERS=kafka:9092
-    networks:
-      - backend
-
-  # ─── AGGREGATOR ─────────────────────────────────────────────────────────
-
-  # aggregator:
-  #   build:
-  #     context: .
-  #     dockerfile: workers/aggregator/Dockerfile
-  #   depends_on:
-  #     - kafka
-  #   environment:
-  #     - KAFKA_BROKERS=kafka:9092
 networks:
   backend:
     driver: bridge
