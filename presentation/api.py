@@ -14,7 +14,7 @@ app = FastAPI(title="Output Safety API", version="1.0", debug=True)
 def get_check_use_case() -> CheckMessageUseCase:
     pii = PIIDetectorRepository()
     safety = SafetyClassifierRepository()
-    ad = AdFilterRepository()
+    ad = AdFilterRepository(model_path=settings.ad_filter_model_name)
     off_topic = OffTopicRepository(settings.off_topic_model_name)
     llm_rewrite = OllamaRewriteRepository()
     llm_request = LLMRequest(

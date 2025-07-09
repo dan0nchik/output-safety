@@ -14,7 +14,9 @@ class Settings(BaseSettings):
     off_topic_model_name: str = Field(
         "paraphrase-albert-small-v2", alias="OFF_TOPIC_MODEL_NAME"
     )
-    ad_filter_model_name: str = Field('models/ad_filter.py', alias='AD_FILTER_MODEL_NAME')
+    ad_filter_model_name: str = Field(
+        "models/ad_filter.pkl", alias="AD_FILTER_MODEL_NAME"
+    )
 
 
 settings = Settings()

@@ -1,6 +1,6 @@
 from entities.data import ServiceCheckResult, BotMessage
 from use_cases.ports.ml_service import IMLServiceRepository
-
+import numpy as np
 import re
 import string
 from typing import List, Dict
@@ -12,7 +12,6 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
 import pickle
-from config import ad_filter_model_name
 
 """
 SERVICE FOR DETECTING AD & COMPETITOR INFORMATION
@@ -95,15 +94,13 @@ def build_ml_pipeline() -> Pipeline:
 
 
 class AdFilterRepository(IMLServiceRepository):
-    def __init__(self):
-        self.filename = ad_filter_model_name
-        with open(self.filename, 'rb') as file:
+    def __init__(self, model_path: str):
+        self.filename = model_path
+        with open(self.filename, "rb") as file:
             self.model = pickle.load(file)
-         
 
     def process(self, message: BotMessage) -> ServiceCheckResult:
         text = message.answer or ""
         proba = float(self.model.predict_proba([text])[0, 1])
         label = 1 if proba >= 0.5 else 0
-        return ServiceCheckResult(label, proba, message.answer)
-    
+        return ServiceCheckResult(safe=label, score=proba, masked_answer=message.answer)
