@@ -1,9 +1,12 @@
+# workers/aggregator/aggregator.py
+
 import asyncio
 from typing import Dict, List
+
 from use_cases.ports.event_bus import EventBus, MessageHandler
-from repositories.file_db import FileResultRepository
 from use_cases.ports.db_connector import IDBRepository
 from repositories.kafka_bus import KafkaEventBus
+from repositories.file_db import FileResultRepository
 from config import settings
 from entities.data import (
     ServiceCheckResult,
@@ -16,32 +19,30 @@ from entities.data import (
 
 class AggregatorService:
     """
-    Subscribes to partial check-results, gathers them per request_id,
-    merges into a FinalCheckResult, and hands off persistence to an IResultRepository.
+    Gathers partial ServiceCheckResults per request_id, merges them
+    into a FinalCheckResult, and hands off persistence to an IDBRepository.
     """
 
     def __init__(
         self,
-        event_bus: EventBus,
         repo: IDBRepository,
         checks: List[str] = ["pii", "safety", "ad", "off_topic"],
     ):
-        self.bus = event_bus
         self.repo = repo
         self.checks = checks
-        # In-memory buffer: request_id -> { check_type: ServiceCheckResult }
+        # in-memory buffer: request_id -> { check_type: ServiceCheckResult }
         self._pending: Dict[str, Dict[str, ServiceCheckResult]] = {}
 
-    async def handle(self, message: ServiceCheckResult, headers: dict):
+    async def handle(self, result: ServiceCheckResult, headers: dict):
         request_id = headers.get("request_id")
         check_type = headers.get("check_type")
         if not request_id or not check_type:
             return
 
         bucket = self._pending.setdefault(request_id, {})
-        bucket[check_type] = message
+        bucket[check_type] = result
 
-        # If we've collected all expected checks, merge & persist
+        # once we've got every expected check, merge & persist
         if all(ct in bucket for ct in self.checks):
             parts = self._pending.pop(request_id)
             final = self._merge(parts)
@@ -53,13 +54,13 @@ class AggregatorService:
         safe = all(p.safe for p in parts.values())
         # take the highest score
         score = max(p.score for p in parts.values())
-        # pick the first non-empty masked_answer (e.g. from rewrite)
+        # pick the first non-empty masked_answer
         masked = next((p.masked_answer for p in parts.values() if p.masked_answer), "")
         # collect violations for any failed part
-        violations = []
-        for ct, p in parts.items():
+        violations: List[Violation] = []
+        for check_type, p in parts.items():
             if not p.safe:
-                vt = getattr(ViolationType, ct.upper(), None)
+                vt = getattr(ViolationType, check_type.upper(), None)
                 lvl = (
                     ViolationLevel.HIGH
                     if p.score > 0.8
@@ -75,17 +76,34 @@ class AggregatorService:
         )
 
 
+# ———————— adapter + entrypoint —————————
+
+
+async def _raw_handler(payload: dict, headers: dict):
+    """
+    KafkaEventBus will give us raw dicts here, so turn them
+    into ServiceCheckResult before handing off to our service.
+    """
+    result = ServiceCheckResult(**payload)
+    await aggregator.handle(result, headers)
+
+
 async def main():
-    # wire up the Kafka event bus
-    bus = KafkaEventBus(brokers=settings.kafka_brokers)
-    # choose your persistence adapter (file-based for now)
-    repo = FileResultRepository(directory="results")
-    # instantiate & start listening
-    aggregator = AggregatorService(bus, repo)
+    # 1) wire up Kafka
+    bus: EventBus = KafkaEventBus(brokers=settings.kafka_brokers)
+
+    # 2) choose persistence adapter
+    repo: IDBRepository = FileResultRepository(directory="results")
+
+    # 3) instantiate service
+    global aggregator
+    aggregator = AggregatorService(repo)
+
+    # 4) subscribe
     await bus.subscribe(
         topic="check-results",
         group_id="aggregator",
-        handler=aggregator.handle,
+        handler=_raw_handler,  # we wrap to deserialize correctly
     )
 
 

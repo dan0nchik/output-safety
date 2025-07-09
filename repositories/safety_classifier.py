@@ -152,7 +152,12 @@ class SafetyClassifierRepository(IMLServiceRepository):
         logger.info(
             "Result safe=%s, score=%.4f, scores=%s", safe_flag, tox_score, scores
         )
-        return ServiceCheckResult(safe=safe_flag, score=tox_score, masked_answer=txt if safe_flag else "Извини,я не могу ответить")
+        return ServiceCheckResult(
+            safe=safe_flag,
+            score=tox_score,
+            masked_answer=txt if safe_flag else "Извини,я не могу ответить",
+        )
+
 
 # Self-test when run as a script
 if __name__ == "__main__":
