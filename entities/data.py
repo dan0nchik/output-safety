@@ -1,52 +1,77 @@
-from dataclasses import dataclass
-from typing import List
+from enum import Enum, IntEnum
+from typing import List, Optional
+
+from pydantic import BaseModel
+from pydantic.dataclasses import dataclass
 
 
-@dataclass
-class BotMessage:
+class BotMessage(BaseModel):
+    """
+    Domain model for an incoming chat message.
+    """
+
     question: str
     answer: str
 
 
-@dataclass
-class ViolationLevel:
-    LOW = 1
-    MEDIUM = 2
-    HIGH = 3
+class ViolationType(Enum):
+    """
+    Types of content violations.
+    """
 
-
-@dataclass
-class ViolationType:
     OFF_TOPIC = "off_topic"
     PII = "pii"
     AD = "ad"
     SAFETY = "safety"
 
 
-@dataclass(frozen=True)
-class LLMRequest:
-    prompt: str  # переменные в промпте всавлять в виде {variable_name}
-    model: str
+class ViolationLevel(IntEnum):
+    """
+    Severity levels for violations.
+    """
+
+    LOW = 1
+    MEDIUM = 2
+    HIGH = 3
 
 
-@dataclass
-class Violation:
+class Violation(BaseModel):
+    """
+    A single detected violation.
+    """
+
     violation_type: ViolationType
     level: ViolationLevel
 
 
-# result per service
-@dataclass
-class ServiceCheckResult:
+class ServiceCheckResult(BaseModel):
+    """
+    Result of a single service check (e.g. PII, Safety, AdFilter, OffTopic, Rewrite).
+    """
+
     safe: bool
-    score: int
+    score: float
     masked_answer: str
 
 
-# final result after decision engine
-@dataclass
-class FinalCheckResult:
+class FinalCheckResult(BaseModel):
+    """
+    Aggregated result after running all checks and decision engine.
+    """
+
     safe: bool
     violations: List[Violation]
-    score: int
+    score: float
     masked_answer: str
+
+
+@dataclass(frozen=True)
+class LLMRequest:
+    """
+    Request payload for invoking an LLM rewrite.
+    """
+
+    prompt: str  # template with placeholders like {answer}
+    model: Optional[str] = None
+    ollama_host: Optional[str] = None
+    api_key: Optional[str] = None

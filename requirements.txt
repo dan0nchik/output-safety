@@ -1,3 +1,12 @@
 fastapi
 sentence_transformers
 ollama
+pydantic
+pydantic-settings
+transformers
+torch
+pytest
+uvicorn
+spacy
+pymorphy2
+lingua-language-detector
