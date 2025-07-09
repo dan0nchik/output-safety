@@ -18,6 +18,7 @@ class Settings(BaseSettings):
         "models/ad_filter.pkl", alias="AD_FILTER_MODEL_NAME"
     )
     kafka_brokers: str = Field("kafka:9092", alias="KAFKA_BROKERS")
+    mongo_uri: str = Field("", alias="MONGO_URI")
 
 
 settings = Settings()

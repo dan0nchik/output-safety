@@ -12,7 +12,8 @@ services:
   # ─── Kafka ──────────────────────────────────────────────────────────────
   kafka:
     image: confluentinc/cp-kafka:7.4.1
-    depends_on: [zookeeper]
+    depends_on:
+      - zookeeper
     network_mode: host
     environment:
       KAFKA_BROKER_ID: 1
@@ -29,6 +30,20 @@ services:
       timeout: 5s
       retries: 10
 
+  # ─── MongoDB ─────────────────────────────────────────────────────────────
+  mongo:
+    image: mongo:6.0
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: example
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - backend
+
   # ─── API ────────────────────────────────────────────────────────────────
   api:
     build:
@@ -36,12 +51,17 @@ services:
       dockerfile: presentation/Dockerfile
     depends_on:
       - kafka
+      - mongo
     environment:
       - KAFKA_BROKERS=84.201.147.126:9092
+      - MONGO_URI=mongodb://root:example@mongo:27017
     ports:
       - "8000:8000"
     networks:
       - backend
+
+volumes:
+  mongo-data:
 
 networks:
   backend:
