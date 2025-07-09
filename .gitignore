@@ -211,3 +211,5 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+python-3.9.13-amd64.exe
+*.exe

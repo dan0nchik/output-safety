@@ -1,4 +1,4 @@
-from entities.data import BotMessage, FinalCheckResult, LLMRequest
+from entities.data import BotMessage, FinalCheckResult, LLMRequest, ServiceCheckResult
 from use_cases.ports.ml_service import IMLServiceRepository, ILLMRewriteRepository
 
 
@@ -20,7 +20,12 @@ class CheckMessageUseCase:
         self.llm_request = llm_request
 
     def execute(self, message: BotMessage) -> FinalCheckResult:
-        # TODO проверка decision engine
-        llm_check = self.llm_rewrite.process(message, self.llm_request)
-        off_topic_check = self.off_topic.process(message)
-        return FinalCheckResult(True, [], 0, "")
+        # off_topic_check: ServiceCheckResult = self.off_topic.process(message)
+        # ad_filter_check: ServiceCheckResult = self.ad.process(message)
+        # safety_check: ServiceCheckResult = self.safety.process(message)
+        # pii_check: ServiceCheckResult = self.pii.process(message)
+        # print("offtopic", off_topic_check)
+        # print("ad", ad_filter_check)
+        # print("safety", safety_check)
+        # print("pi", pii_check)
+        return FinalCheckResult(safe=True, violations=[], score=0, masked_answer="")

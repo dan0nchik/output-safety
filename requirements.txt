@@ -1,8 +1,12 @@
-fastapi~=0.115.14
-sentence_transformers==2.2.2
-ollama~=0.5.1
-pydantic~=2.11.7
+fastapi
+sentence_transformers
+ollama
+pydantic
 pydantic-settings
 transformers
 torch
 pytest
+uvicorn
+spacy
+pymorphy2
+lingua-language-detector

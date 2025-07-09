@@ -78,17 +78,24 @@ class PIIDetectorRepository(IMLServiceRepository):
         start = None
         end = None
         for res in results:
-            if any(tag in res['entity'] for tag in ['LAST_NAME', 'FIRST_NAME', 'MIDDLE_NAME']):
+            if any(
+                tag in res["entity"]
+                for tag in ["LAST_NAME", "FIRST_NAME", "MIDDLE_NAME"]
+            ):
                 if start is None:
-                    start = res['start']
-                end = res['end']
+                    start = res["start"]
+                end = res["end"]
             else:
                 if start is not None and end is not None:
-                    found.append({'type': 'FIO', 'match': text[start:end], 'span': (start, end)})
+                    found.append(
+                        {"type": "FIO", "match": text[start:end], "span": (start, end)}
+                    )
                     start = None
                     end = None
         if start is not None and end is not None:
-            found.append({'type': 'FIO', 'match': text[start:end], 'span': (start, end)})
+            found.append(
+                {"type": "FIO", "match": text[start:end], "span": (start, end)}
+            )
         return found
 
     def _mask_text(self, text: str, pii_matches: List[dict]) -> str:
@@ -101,17 +108,17 @@ class PIIDetectorRepository(IMLServiceRepository):
                 or match["type"] == "PASSPORT_NUMBER"
             ):
                 for i in range(start, end):
-                    masked[i] = 'X'
-            elif match['type'] == 'PHONE':
-                phone_text = match['match']
+                    masked[i] = "X"
+            elif match["type"] == "PHONE":
+                phone_text = match["match"]
                 phone_start = text.find(phone_text, start)
                 if phone_start != -1:
                     for i in range(phone_start, phone_start + len(phone_text)):
                         masked[i] = "X"
             elif match["type"] == "EMAIL":
                 for i in range(start, end):
-                    masked[i] = 'x'
-            elif match['type'] == 'FIO':
+                    masked[i] = "x"
+            elif match["type"] == "FIO":
                 for i in range(start, end):
                     masked[i] = "*"
         return "".join(masked)
@@ -149,15 +156,17 @@ class PIIDetectorRepository(IMLServiceRepository):
                     violations.append(
                         Violation(
                             violation_type=m["type"],
-                            level=ViolationLevel.HIGH
-                            if m["type"]
-                            in [
-                                "PASSPORT",
-                                "PASSPORT_SERIES",
-                                "PASSPORT_NUMBER",
-                                "PHONE",
-                            ]
-                            else ViolationLevel.MEDIUM,
+                            level=(
+                                ViolationLevel.HIGH
+                                if m["type"]
+                                in [
+                                    "PASSPORT",
+                                    "PASSPORT_SERIES",
+                                    "PASSPORT_NUMBER",
+                                    "PHONE",
+                                ]
+                                else ViolationLevel.MEDIUM
+                            ),
                         )
                     )
             if field == "answer" and matches:

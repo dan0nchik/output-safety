@@ -8,7 +8,7 @@ from repositories.off_topic_scorer import OffTopicRepository
 from repositories.safety_classifier import SafetyClassifierRepository
 from config import settings
 
-app = FastAPI(title="Output Safety API", version="1.0")
+app = FastAPI(title="Output Safety API", version="1.0", debug=True)
 
 
 def get_check_use_case() -> CheckMessageUseCase:
@@ -27,12 +27,13 @@ def get_check_use_case() -> CheckMessageUseCase:
 
 
 @app.post("/check", response_model=FinalCheckResult, summary="Check message safety")
-async def check_endpoint(
+def check_endpoint(
     payload: BotMessage, use_case: CheckMessageUseCase = Depends(get_check_use_case)
 ):
     try:
         return use_case.execute(payload)
-    except Exception:
+    except Exception as e:
+        print(e)
         raise HTTPException(
             status_code=500, detail="Internal error while checking message"
         )

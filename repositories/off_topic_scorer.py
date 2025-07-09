@@ -45,4 +45,6 @@ class OffTopicRepository(IMLServiceRepository):
         # Пороговое значение для определения релевантности (0.5 - примерное значение)
         is_safe = score >= 0.5
 
-        return ServiceCheckResult(is_safe, score, message.answer)
+        return ServiceCheckResult(
+            safe=is_safe, score=score, masked_answer=message.answer
+        )
