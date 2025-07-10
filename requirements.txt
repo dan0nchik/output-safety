@@ -4,3 +4,4 @@ aiokafka>=0.8.0
 pydantic>=1.10.0
 pydantic-settings
 pymongo
+gigachat

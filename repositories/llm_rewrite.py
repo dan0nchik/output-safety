@@ -7,9 +7,9 @@ class GigachatRewriteRepository(ILLMRewriteRepository):
     def __init__(self):
         self.final_prompt = ""
 
-    def process(self, message: BotMessage, request: LLMRequest) -> LLMRewriteResult:
+    def process(self, request: LLMRequest) -> LLMRewriteResult:
         client = GigaChat(credentials=request.api_key, verify_ssl_certs=False)
-        response = client.chat(request.prompt + message.answer)
+        response = client.chat(request.prompt)
         return LLMRewriteResult(
             answer=response.choices[0].message.content,
         )

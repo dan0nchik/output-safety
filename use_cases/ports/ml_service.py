@@ -1,5 +1,5 @@
 from abc import abstractmethod, ABC
-from entities.data import ServiceCheckResult, BotMessage, LLMRequest
+from entities.data import ServiceCheckResult, BotMessage, LLMRequest, LLMRewriteResult
 
 
 class IMLServiceRepository(ABC):
@@ -10,7 +10,5 @@ class IMLServiceRepository(ABC):
 
 class ILLMRewriteRepository(ABC):
     @abstractmethod
-    async def process(
-        self, message: BotMessage, request: LLMRequest
-    ) -> ServiceCheckResult:
+    async def process(self, request: LLMRequest) -> LLMRewriteResult:
         pass

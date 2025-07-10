@@ -6,8 +6,10 @@ from typing import Dict, List
 
 from use_cases.ports.event_bus import EventBus, MessageHandler
 from use_cases.ports.db_connector import IDBRepository
+from use_cases.ports.ml_service import ILLMRewriteRepository
 from repositories.kafka_bus import KafkaEventBus
 from repositories.file_db import MongoResultRepository
+from repositories.llm_rewrite import GigachatRewriteRepository
 from config import settings
 from entities.data import (
     ServiceCheckResult,
@@ -15,6 +17,8 @@ from entities.data import (
     Violation,
     ViolationType,
     ViolationLevel,
+    LLMRequest,
+    LLMRewriteResult,
 )
 
 
@@ -27,9 +31,11 @@ class AggregatorService:
     def __init__(
         self,
         repo: IDBRepository,
+        rewriter: ILLMRewriteRepository,
         checks: List[str] = ["pii", "safety", "ad", "off_topic"],
     ):
         self.repo = repo
+        self.rewriter = rewriter
         self.checks = checks
         # in-memory buffer: request_id -> { check_type: ServiceCheckResult }
         self._pending: Dict[str, Dict[str, ServiceCheckResult]] = {}
@@ -65,11 +71,35 @@ class AggregatorService:
 
         return " ".join(w for w in text.split() if not is_masked(w))
 
+    def _rewrite(self, masked_text: str, problems: list[str]) -> str:
+        """
+        Use the LLM to rewrite the text, handling any exceptions.
+        Returns the rewritten text or a placeholder if it fails.
+        """
+        problem_map = {"ad": "реклама", "off_topic": "несоответсвие теме"}
+        problems_str = ", ".join(problem_map[p] for p in problems if p in problem_map)
+        prompt = (
+            f"В данном тексте (в тэге <TEXT>) следующие проблемы: {problems_str}. "
+            f"Перепиши текст, исправив ошибки. Верни результат в тэге <RES>. "
+            f"<TEXT>{masked_text}</TEXT>"
+        )
+        try:
+            llm_request: LLMRequest = LLMRequest(
+                prompt=prompt,
+                api_key=settings.gigachat_api,
+            )
+            response: LLMRewriteResult = self.rewriter.process(llm_request)
+            return response.answer if response else "[REWRITE_NEEDED]"
+        except Exception as exc:
+            print(f"[aggregator] Rewrite error: {exc}")
+            return "[REWRITE_NEEDED]"
+
     def _merge(self, parts: Dict[str, ServiceCheckResult]) -> FinalCheckResult:
         final_safe = all(p.safe for p in parts.values())
         violations: List[Violation] = []
 
         ad_or_offtopic_unsafe = False
+        failed_checks = []
 
         for check_type, result in parts.items():
             if not result.safe:
@@ -86,6 +116,7 @@ class AggregatorService:
                 violations.append(Violation(violation_type=vt.value, level=lvl))
                 if check_type in {"ad", "off_topic"}:
                     ad_or_offtopic_unsafe = True
+                    failed_checks.append(check_type)
 
         # Get any available answer (they all should use same original base)
         base_answer = next(
@@ -102,7 +133,7 @@ class AggregatorService:
         if pii_or_safety_failed:
             cleaned = self._strip_masked_words(base_answer)
             if ad_or_offtopic_unsafe:
-                rewritten = self._rewrite(cleaned)
+                rewritten = self._rewrite(cleaned, failed_checks)
                 return FinalCheckResult(
                     final_verdict_safe=final_safe,
                     violations=violations,
@@ -119,7 +150,7 @@ class AggregatorService:
 
         # No PII/SAFETY issues, but AD or OFF_TOPIC fail
         if ad_or_offtopic_unsafe:
-            rewritten = self._rewrite(base_answer)
+            rewritten = self._rewrite(base_answer, failed_checks)
             return FinalCheckResult(
                 final_verdict_safe=final_safe,
                 violations=violations,
@@ -155,9 +186,11 @@ async def main():
     # 2) choose persistence adapter
     repo: IDBRepository = MongoResultRepository(mongo_uri=settings.mongo_uri)
 
+    rewriter: GigachatRewriteRepository = GigachatRewriteRepository()
+
     # 3) instantiate service
     global aggregator
-    aggregator = AggregatorService(repo)
+    aggregator = AggregatorService(repo, rewriter)
 
     # 4) subscribe
     await bus.subscribe(
