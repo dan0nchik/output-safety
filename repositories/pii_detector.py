@@ -28,9 +28,10 @@ class PIIDetectorRepository(IMLServiceRepository):
     PASSPORT_REGEX = re.compile(r"(\b\d{4}\s?\d{6}\b|\b\d{10}\b)")
     PASSPORT_SERIES_REGEX = re.compile(r"серия\s*\d{4}", re.IGNORECASE)
     PASSPORT_NUMBER_REGEX = re.compile(r"номер\s*\d{6}", re.IGNORECASE)
-
+    print("PIIDetector initialized with regex patterns")
     # --- HuggingFace NER pipeline initialization ---
     _ner_pipe = pipeline("ner", model="Gherman/bert-base-NER-Russian")
+    print("NER pipeline initialized")
 
     def _find_phone(self, text: str) -> List[dict]:
         found = []
@@ -87,9 +88,9 @@ class PIIDetectorRepository(IMLServiceRepository):
             start, end = match['span']
             if match['type'] in ['PASSPORT', 'PASSPORT_SERIES', 'PASSPORT_NUMBER']:
                 for i in range(start, end):
-                    masked[i] = 'X'
-            elif match['type'] == 'PHONE':
-                phone_text = match['match']
+                    masked[i] = "X"
+            elif match["type"] == "PHONE":
+                phone_text = match["match"]
                 phone_start = text.find(phone_text, start)
                 if phone_start != -1:
                     for i in range(phone_start, phone_start + len(phone_text)):
@@ -116,6 +117,7 @@ class PIIDetectorRepository(IMLServiceRepository):
     def process(self, message: BotMessage) -> ServiceCheckResult:
         from entities.data import Violation, ViolationLevel
 
+        print("Processing message:", message)
         texts = [("question", message.question), ("answer", message.answer)]
         all_matches = []
         violations = []
@@ -138,7 +140,6 @@ class PIIDetectorRepository(IMLServiceRepository):
                         level=ViolationLevel.HIGH if m['type'] in ['PASSPORT', 'PASSPORT_SERIES', 'PASSPORT_NUMBER', 'PHONE'] else ViolationLevel.MEDIUM
                     ))
                     censored_types.add(m['type'])
-            if field == 'answer' and matches:
                 masked_answer = self._mask_text(text, matches)
         safe = not bool(all_matches)
         score = int(max_ratio * 100)
