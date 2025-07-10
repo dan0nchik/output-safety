@@ -1,14 +1,12 @@
-FROM fluent/fluentd:v1.15-alpine
+FROM fluent/fluentd:v1.15-1-debian
+
 USER root
 
-# Install build dependencies for native gem compilation
-RUN apk update \
- && apk add --no-cache --virtual .build-deps \
-    build-base \
-    ruby-dev \
-    openssl-dev \
+RUN apt-get update \
+ && apt-get install -y build-essential ruby-dev libssl-dev \
  && gem install fluent-plugin-mongo fluent-plugin-gelf \
- && apk del .build-deps
+ && apt-get purge -y build-essential ruby-dev libssl-dev \
+ && rm -rf /var/lib/apt/lists/*
 
 USER fluent
 COPY fluent.conf /fluentd/etc/fluent.conf
