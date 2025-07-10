@@ -41,9 +41,9 @@ class LLMOffTopic:
             "messages": [
                 {
                     "role": "system",
-                    "content": "Ты эксперт по анализу соответствия ответа и вопроса."
+                    "content": "Ты эксперт по анализу соответствия ответа и вопроса.",
                 },
-                {"role": "user", "content": prompt}
+                {"role": "user", "content": prompt},
             ],
             "temperature": 0.0,  # Параметр для детерминированных ответов
         }

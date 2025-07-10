@@ -25,7 +25,10 @@ Pipeline Overview:
 4. Thresholding — if the toxicity score is above 0.1, the message is considered harmful.
 """
 
-detector = LanguageDetectorBuilder.from_languages(Language.ENGLISH, Language.RUSSIAN).build()
+detector = LanguageDetectorBuilder.from_languages(
+    Language.ENGLISH, Language.RUSSIAN
+).build()
+
 
 def detect_language(text: str) -> str:
     lang = detector.detect_language_of(text)
@@ -34,6 +37,7 @@ def detect_language(text: str) -> str:
     elif lang == Language.RUSSIAN:
         return "ru"
     return "unknown"
+
 
 EN_MODEL_NAME = "ujjawalsah/bert-toxicity-classifier"
 RU_MODEL_NAME = "cointegrated/rubert-tiny-toxicity"
@@ -49,6 +53,7 @@ ru_model.eval()
 # Метки моделей
 EN_LABELS = ["toxic", "obscene", "insult", "threat", "identity_hate"]
 RU_LABELS = ["non-toxic", "insult", "obscenity", "threat", "dangerous"]
+
 
 class SafetyClassifierRepository(IMLServiceRepository):
     def __init__(self, mask: bool = True):
@@ -70,7 +75,18 @@ class SafetyClassifierRepository(IMLServiceRepository):
             return token
 
         if lang == "en":
-            exceptions = ["you", "you're", "you’re", "You", "You're", "YOU", "YOU’RE", "you are", "You are", "YOU ARE"]
+            exceptions = [
+                "you",
+                "you're",
+                "you’re",
+                "You",
+                "You're",
+                "YOU",
+                "YOU’RE",
+                "you are",
+                "You are",
+                "YOU ARE",
+            ]
             for ex in sorted(exceptions, key=lambda x: -len(x)):  # длинные сначала
                 text = text.replace(ex, protect(ex))
 
@@ -80,7 +96,9 @@ class SafetyClassifierRepository(IMLServiceRepository):
                 if word in protected_map:
                     masked_words.append(word)
                     continue
-                inputs = en_tokenizer(word, return_tensors="pt", truncation=True, padding=True)
+                inputs = en_tokenizer(
+                    word, return_tensors="pt", truncation=True, padding=True
+                )
                 with torch.no_grad():
                     logits = en_model(**inputs).logits.squeeze()
                     probs = torch.sigmoid(logits).tolist()
@@ -91,7 +109,9 @@ class SafetyClassifierRepository(IMLServiceRepository):
             words = text.split()
             masked_words = []
             for word in words:
-                inputs = ru_tokenizer(word, return_tensors="pt", truncation=True, padding=True)
+                inputs = ru_tokenizer(
+                    word, return_tensors="pt", truncation=True, padding=True
+                )
                 with torch.no_grad():
                     logits = ru_model(**inputs).logits.squeeze()
                     probs = torch.sigmoid(logits).tolist()
@@ -104,6 +124,7 @@ class SafetyClassifierRepository(IMLServiceRepository):
             final = final.replace(token, phrase)
 
         return final
+
     def process(self, message: BotMessage) -> ServiceCheckResult:
         txt = message.answer
         lang = detect_language(txt)
@@ -119,26 +140,34 @@ class SafetyClassifierRepository(IMLServiceRepository):
             score_map = {"unknown": 0.0}
         safe = is_safe(tox_score)
         masked_message = txt
-        if (not (safe) and self.mask):
-            masked_message = self.mask_toxic_fragments(txt,lang)
-        elif (not (safe) and not (self.mask)):
+        if not (safe) and self.mask:
+            masked_message = self.mask_toxic_fragments(txt, lang)
+        elif not (safe) and not (self.mask):
             masked_message = "Извини, не могу помочь тебе с этим вопросом"
-        return ServiceCheckResult(safe,tox_score,masked_message)
+        return ServiceCheckResult(safe, tox_score, masked_message)
+
 
 def is_safe(score) -> bool:
     if score >= 0.2:
         return False
     else:
         return True
+
+
 def predict_toxicity_en(text: str) -> dict:
-    inputs = en_tokenizer(text, return_tensors="pt", truncation=True, padding=True, max_length=512)
+    inputs = en_tokenizer(
+        text, return_tensors="pt", truncation=True, padding=True, max_length=512
+    )
     with torch.no_grad():
         logits = en_model(**inputs).logits.squeeze()
         probs = torch.sigmoid(logits).tolist()
     return dict(zip(EN_LABELS, probs))
 
+
 def predict_toxicity_ru(text: str) -> dict:
-    inputs = ru_tokenizer(text, return_tensors="pt", truncation=True, padding=True, max_length=512)
+    inputs = ru_tokenizer(
+        text, return_tensors="pt", truncation=True, padding=True, max_length=512
+    )
     with torch.no_grad():
         logits = ru_model(**inputs).logits.squeeze()
         probs = torch.sigmoid(logits).tolist()
@@ -151,7 +180,6 @@ if __name__ == "__main__":
         BotMessage(question="EN", answer="You are so stupid and worthless."),
         BotMessage(question="EN", answer="You're such a fucking idiot."),
         BotMessage(question="EN", answer="I hate you, you piece of shit."),
-
         # Russian toxic
         BotMessage(question="RU", answer="Ты дебил и ничтожество."),
         BotMessage(question="RU", answer="Какой же ты ебанат, ужас просто."),

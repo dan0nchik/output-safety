@@ -5,7 +5,7 @@ from llm_off_topic import LLMOffTopic
 
 class LLMOffTopicRepository(IMLServiceRepository):
     """Репозиторий для проверки релевантности ответа на вопрос.
-    
+
     Использует LLM для оценки соответствия ответа заданному вопросу.
     Возвращает результат проверки с оценкой релевантности от 0 до 1.
     """
@@ -16,10 +16,10 @@ class LLMOffTopicRepository(IMLServiceRepository):
 
     def process(self, message: BotMessage) -> ServiceCheckResult:
         """Обрабатывает сообщение и проверяет релевантность ответа.
-        
+
         Args:
             message: Объект BotMessage, содержащий вопрос и ответ для проверки.
-            
+
         Returns:
             ServiceCheckResult: Результат проверки, содержащий:
                 - is_safe: bool (True если ответ релевантен)
@@ -43,7 +43,6 @@ class LLMOffTopicRepository(IMLServiceRepository):
         except Exception as exc:
             error = f"Ошибка при запросе к LLM: {str(exc)}"
 
-
         if error is None:
             # Парсинг ответа LLM
             try:
@@ -52,7 +51,7 @@ class LLMOffTopicRepository(IMLServiceRepository):
 
                 score_line = next(line for line in lines if "score" in line)
                 score = float(score_line.split(":")[1].strip())
-                
+
             except StopIteration:
                 error = "LLM не вернул обязательные поля is_relevant и score"
             except ValueError:
