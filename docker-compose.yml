@@ -130,6 +130,7 @@ services:
 
   fluentd:
     build: ./fluentd
+    container_name: fluentd
     depends_on:
       - mongo
       - graylog
