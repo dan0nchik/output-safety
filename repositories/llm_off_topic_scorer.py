@@ -60,16 +60,3 @@ class LLMOffTopicRepository(IMLServiceRepository):
                 error = f"Неожиданная ошибка при обработке ответа LLM: {str(exc)}"
 
         return ServiceCheckResult(is_safe, score, message.answer, error)
-
-
-if __name__ == "__main__":
-    """Пример тестирования репозитория.
-    
-    Чем ближе оценка (score) к 1, тем более релевантен ответ.
-    """
-    str1 = "Let's talk about London."
-    str2 = "London is the capital of Great Britain."
-    msg = BotMessage(str1, str2)
-    service1 = LLMOffTopicRepository()
-    result = service1.process(msg)
-    print(result)

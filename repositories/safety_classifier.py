@@ -172,28 +172,3 @@ def predict_toxicity_ru(text: str) -> dict:
         logits = ru_model(**inputs).logits.squeeze()
         probs = torch.sigmoid(logits).tolist()
     return dict(zip(RU_LABELS, probs))
-
-
-if __name__ == "__main__":
-    test_messages = [
-        # English toxic
-        BotMessage(question="EN", answer="You are so stupid and worthless."),
-        BotMessage(question="EN", answer="You're such a fucking idiot."),
-        BotMessage(question="EN", answer="I hate you, you piece of shit."),
-        # Russian toxic
-        BotMessage(question="RU", answer="Ты дебил и ничтожество."),
-        BotMessage(question="RU", answer="Какой же ты ебанат, ужас просто."),
-        BotMessage(question="RU", answer="Ты блядь бесишь уже, иди нахуй."),
-    ]
-
-    classifier = SafetyClassifierRepository()
-
-    for i, msg in enumerate(test_messages, start=1):
-        print(f"\n🔹 Test #{i}: {msg.answer}")
-        start_time = time.perf_counter()
-        result = classifier.process(msg)
-        elapsed = time.perf_counter() - start_time
-        print(f"✅ Safe: {result.safe}")
-        print(f"📉 Score: {result.score:.4f}")
-        print(f"🛡️ Masked: {result.masked_answer}")
-        print(f"⏱️ Time taken: {elapsed:.3f} sec")

@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     ollama_model_name: str = Field("", alias="LLM_MODEL_NAME")
     ollama_prompt: str = Field("перепиши текст", alias="LLM_PROMPT")
     off_topic_model_name: str = Field(
-        "paraphrase-albert-small-v2", alias="OFF_TOPIC_MODEL_NAME"
+        "all-MiniLM-L6-v2", alias="OFF_TOPIC_MODEL_NAME"
     )
     ad_filter_model_name: str = Field(
         "models/ad_filter.pkl", alias="AD_FILTER_MODEL_NAME"
