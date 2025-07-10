@@ -53,6 +53,9 @@ class AggregatorService:
         if all(ct in bucket for ct in self.checks):
             parts = self._pending.pop(request_id)
             final = self._merge(parts)
+            await self.event_bus.publish(
+                topic="final-results", message=final, headers={"request_id": request_id}
+            )
             self.repo.save(request_id, final)
             print(f"[aggregator] Saved final result for {request_id}")
 
