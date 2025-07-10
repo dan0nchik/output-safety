@@ -1,32 +1,40 @@
-from fastapi import FastAPI, HTTPException, Depends
-from entities.data import BotMessage, LLMRequest, FinalCheckResult
+# presentation/api.py
+from fastapi import FastAPI, Depends, HTTPException
+from entities.data import BotMessage, FinalCheckResult
+from repositories.file_db import MongoResultRepository
 from use_cases.check_message import CheckMessageUseCase
-from repositories.llm_rewrite import OllamaRewriteRepository
-from repositories.pii_detector import PIIDetectorRepository
-from repositories.ad_filter import AdFilterRepository
-from repositories.off_topic_scorer import OffTopicRepository
-from repositories.safety_classifier import SafetyClassifierRepository
+from use_cases.ports.event_bus import EventBus
+from repositories.kafka_bus import KafkaEventBus
+from config import settings
 
-app = FastAPI(title="Output Safety API", version="1.0")
+app = FastAPI(title="Output Safety API", debug=True)
 
 
-def get_check_use_case() -> CheckMessageUseCase:
-    pii = PIIDetectorRepository()
-    safety = SafetyClassifierRepository()
-    ad = AdFilterRepository()
-    off_topic = OffTopicRepository()
-    llm_rewrite = OllamaRewriteRepository()
-    llm_request = LLMRequest(prompt="перепиши текст", model="llama3.1")
-    return CheckMessageUseCase(pii, safety, ad, off_topic, llm_rewrite, llm_request)
+async def get_event_bus() -> EventBus:
+    return KafkaEventBus(brokers=settings.kafka_brokers)
 
 
-@app.post("/check", response_model=FinalCheckResult, summary="Check message safety")
+async def get_enqueue_uc(bus: EventBus = Depends(get_event_bus)) -> CheckMessageUseCase:
+    return CheckMessageUseCase(event_bus=bus)
+
+
+@app.post("/check", status_code=202)
 async def check_endpoint(
-    payload: BotMessage, use_case: CheckMessageUseCase = Depends(get_check_use_case)
+    payload: BotMessage,
+    uc: CheckMessageUseCase = Depends(get_enqueue_uc),
 ):
     try:
-        return use_case.execute(payload)
-    except Exception:
-        raise HTTPException(
-            status_code=500, detail="Internal error while checking message"
-        )
+        request_id = await uc.enqueue(payload)
+        return {"request_id": request_id}
+    except Exception as e:
+        # send real error in dev; hide in prod
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/result/{request_id}", response_model=FinalCheckResult)
+async def get_result(request_id: str):
+    repo = MongoResultRepository(mongo_uri=settings.mongo_uri)
+    doc = repo.collection.find_one({"request_id": request_id})
+    if not doc or "result" not in doc:
+        raise HTTPException(status_code=404, detail="Result not found")
+    return doc["result"]

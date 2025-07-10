@@ -1,0 +1,10 @@
+services:
+  pii-service:
+    container_name: pii-service
+    build:
+      context: ../..
+      dockerfile: workers/pii/Dockerfile
+    environment:
+      - KAFKA_BROKERS=84.201.147.126:9092
+    restart: unless-stopped
+    command: ["python", "-u", "workers/pii/pii_worker.py"]
