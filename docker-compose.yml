@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
 
   # ─── Zookeeper ──────────────────────────────────────────────────────────
@@ -22,8 +20,6 @@ services:
       - zookeeper
     ports:
       - "9092:9092"
-    networks:
-      - backend
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
@@ -38,7 +34,10 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+    networks:
+      - backend
 
+  # ─── MongoDB ─────────────────────────────────────────────────────────────
   mongo:
     image: mongo:6.0
     restart: unless-stopped
@@ -66,12 +65,12 @@ services:
         condition: service_started
     ports:
       - "8000:8000"
-    networks:
-      - backend
     env_file:
       - .env
+    networks:
+      - backend
 
-  # ─── Aggregator ────────────────────────────────────────────────────────────────
+  # ─── Aggregator ─────────────────────────────────────────────────────────
   aggregator:
     build:
       context: .
@@ -88,8 +87,50 @@ services:
     networks:
       - backend
 
+  # ─── PostgreSQL для Redash ──────────────────────────────────────────────
+  postgres:
+    image: postgres:13
+    container_name: redash-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: redash
+      POSTGRES_PASSWORD: redash_pass
+      POSTGRES_DB: redash
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - backend
+
+  # ─── Redis для Redash ───────────────────────────────────────────────────
+  redis:
+    image: redis:6
+    container_name: redash-redis
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+    networks:
+      - backend
+
+  # ─── Redash ────────────────────────────────────────────────────────────
+  redash:
+    image: redash/redash:10.0.0.b50391   # или latest
+    container_name: redash
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      REDASH_DATABASE_URL: "postgresql://redash:redash_pass@postgres/redash"
+      REDASH_REDIS_URL: "redis://redis:6379/0"
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - backend
+
 volumes:
   mongo-data:
+  postgres-data:
+  redis-data:
 
 networks:
   backend:
