@@ -80,8 +80,56 @@ services:
     networks:
     - backend
 
+  opensearch:
+    image: 'opensearchproject/opensearch:2.12.0'
+    container_name: opensearch
+    environment:
+      - cluster.name=opensearch-cluster
+      - node.name=opensearch
+      - discovery.type=single-node
+      - bootstrap.memory_lock=true
+      - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"
+      - "DISABLE_INSTALL_DEMO_CONFIG=true"
+      - "DISABLE_SECURITY_PLUGIN=true"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - 'opensearch-data:/usr/share/opensearch/data'
+    restart: always
+    networks:
+      - backend
+
+  graylog:
+    image: 'graylog/graylog:6.0'
+    container_name: graylog
+    env_file:
+      - .env
+    environment:
+      - GRAYLOG_PASSWORD_SECRET=${GRAYLOG_PASSWORD_SECRET}
+      - GRAYLOG_ROOT_PASSWORD_SHA2=${GRAYLOG_ROOT_PASSWORD_SHA2}
+      - GRAYLOG_MONGODB_URI=${GRAYLOG_MONGODB_URI}
+      - GRAYLOG_ELASTICSEARCH_HOSTS=http://opensearch:9200
+      - GRAYLOG_HTTP_EXTERNAL_URI=http://127.0.0.1:9000/
+    depends_on:
+      - opensearch
+    ports:
+      # Веб-интерфейс Graylog
+      - '9000:9000'
+      # Входы для логов (Inputs)
+      - '5044:5044/tcp'  # Beats
+      - '514:514/udp'    # Syslog
+      - '12201:12201/udp' # GELF
+    restart: always
+    networks:
+      - backend
+
+
 volumes:
   mongo-data:
+  opensearch-data:
+    driver: local 
 
 networks:
   backend:
