@@ -53,7 +53,7 @@ class ServiceCheckResult(BaseModel):
     safe: bool
     score: float
     masked_answer: str
-    error: Optional[str]
+    error: Optional[str] = None
 
 
 class FinalCheckResult(BaseModel):
