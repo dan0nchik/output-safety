@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional
 
 
 @dataclass
@@ -41,6 +41,7 @@ class ServiceCheckResult:
     safe: bool
     score: int
     masked_answer: str
+    error: Optional[str]
 
 
 # final result after decision engine
