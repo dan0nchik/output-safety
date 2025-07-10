@@ -10,7 +10,7 @@ async def handle(message: BotMessage, headers: dict):
         return
 
     # 1) run the PII adapter
-    result: ServiceCheckResult = PIIDetectorRepository().process(message)
+    result: ServiceCheckResult = PIIDetectorRepository().process(BotMessage(**message))
 
     # 2) publish partial result back
     await bus.publish(

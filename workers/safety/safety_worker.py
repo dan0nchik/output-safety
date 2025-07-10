@@ -10,7 +10,9 @@ async def handle(message: BotMessage, headers: dict):
         return
     print(message)
     # 1) run the PII adapter
-    result: ServiceCheckResult = SafetyClassifierRepository().process(message)
+    result: ServiceCheckResult = SafetyClassifierRepository().process(
+        BotMessage(**message)
+    )
     print(result)
     # 2) publish partial result back
     await bus.publish(
