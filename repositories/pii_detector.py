@@ -2,8 +2,7 @@ from entities.data import ServiceCheckResult, BotMessage
 from use_cases.ports.ml_service import IMLServiceRepository
 import re
 from typing import List
-from deeppavlov import build_model, configs
-import torchcrf
+from transformers import pipeline
 
 
 class PIIDetectorRepository(IMLServiceRepository):
@@ -29,11 +28,10 @@ class PIIDetectorRepository(IMLServiceRepository):
     PASSPORT_REGEX = re.compile(r"(\b\d{4}\s?\d{6}\b|\b\d{10}\b)")
     PASSPORT_SERIES_REGEX = re.compile(r"серия\s*\d{4}", re.IGNORECASE)
     PASSPORT_NUMBER_REGEX = re.compile(r"номер\s*\d{6}", re.IGNORECASE)
-
-    # --- DeepPavlov NERUS initialization ---
-    _ner_model = build_model(
-        configs.ner.ner_ontonotes_bert_mult, download=True, install=True
-    )
+    print("PIIDetector initialized with regex patterns")
+    # --- HuggingFace NER pipeline initialization ---
+    _ner_pipe = pipeline("ner", model="Gherman/bert-base-NER-Russian")
+    print("NER pipeline initialized")
 
     def _find_phone(self, text: str) -> List[dict]:
         found = []
@@ -75,95 +73,52 @@ class PIIDetectorRepository(IMLServiceRepository):
         return found
 
     def _find_fio(self, text: str) -> List[dict]:
-        result = self._ner_model([text])
-        tokens, tags = result[0][0], result[1][0]
+        results = self._ner_pipe(text)
+        print("NER results:", results)  # For debugging
+
         found = []
-        current = []
-        start = None
-        idx_in_text = 0
-        i_person_counter = 0
-        otchestvo_span = None
-        for idx, (token, tag) in enumerate(zip(tokens, tags)):
-            is_b = tag in ("B-PER", "B-PERSON")
-            is_i = tag in ("I-PER", "I-PERSON")
-            if is_b:
-                # Завершаем предыдущую последовательность
-                if otchestvo_span:
-                    found.append(
-                        {
-                            "type": "FIO_OTCHESTVO",
-                            "match": otchestvo_span["match"],
-                            "span": otchestvo_span["span"],
-                        }
-                    )
-                    otchestvo_span = None
-                current = [token]
-                i_person_counter = 0
-                # Позиция фамилии
-                start = text.find(token, idx_in_text)
-                idx_in_text = start + len(token)
-            elif is_i and current:
-                i_person_counter += 1
-                idx_in_text = text.find(token, idx_in_text)
-                if idx_in_text != -1:
-                    idx_in_text += len(token)
-                current.append(token)
-                # Если это второй I-PERSON/I-PER — считаем это отчеством
-                if i_person_counter == 2:
-                    otchestvo_start = text.find(token, idx_in_text - len(token))
-                    otchestvo_end = otchestvo_start + len(token)
-                    otchestvo_span = {
-                        "type": "FIO_OTCHESTVO",
-                        "match": token,
-                        "span": (otchestvo_start, otchestvo_end),
-                    }
+        current = None
+
+        for res in results:
+            tag = res["entity"].replace("U-", "").replace("B-", "").replace("I-", "")
+            word = res["word"]
+            start = res["start"]
+            end = res["end"]
+
+            if word.startswith("##") and current:
+                current["match"] += word[2:]
+                current["span"] = (current["span"][0], end)
             else:
-                if otchestvo_span:
-                    found.append(
-                        {
-                            "type": "FIO_OTCHESTVO",
-                            "match": otchestvo_span["match"],
-                            "span": otchestvo_span["span"],
-                        }
-                    )
-                    otchestvo_span = None
-                current = []
-                i_person_counter = 0
-        if otchestvo_span:
-            found.append(
-                {
-                    "type": "FIO_OTCHESTVO",
-                    "match": otchestvo_span["match"],
-                    "span": otchestvo_span["span"],
-                }
-            )
+                # Push previous match if any
+                if current:
+                    found.append(current)
+                if tag in ["FIRST_NAME", "LAST_NAME", "MIDDLE_NAME"]:
+                    current = {"type": tag, "match": word, "span": (start, end)}
+                else:
+                    current = None
+
+        # Final entity
+        if current:
+            found.append(current)
+
         return found
 
     def _mask_text(self, text: str, pii_matches: List[dict]) -> str:
         masked = list(text)
         for match in pii_matches:
             start, end = match["span"]
-            if (
-                match["type"] == "PASSPORT"
-                or match["type"] == "PASSPORT_SERIES"
-                or match["type"] == "PASSPORT_NUMBER"
-            ):
-                for i in range(start, end):
-                    masked[i] = "X"
-            elif match["type"] == "PHONE":
-                # Маскируем только сам номер, не слово 'номер'
-                # Проверяем, что маскируем только последовательность цифр (и +, если есть)
-                phone_text = match["match"]
-                phone_start = text.find(phone_text, start)
-                if phone_start != -1:
-                    for i in range(phone_start, phone_start + len(phone_text)):
-                        masked[i] = "X"
-            elif match["type"] == "EMAIL":
-                for i in range(start, end):
-                    masked[i] = "x"
-            elif match["type"] == "FIO_OTCHESTVO":
+            mtype = match["type"]
+
+            if mtype in ["PASSPORT", "PASSPORT_SERIES", "PASSPORT_NUMBER", "PHONE"]:
                 for i in range(start, end):
                     masked[i] = "*"
+            elif mtype == "EMAIL":
+                for i in range(start, end):
+                    masked[i] = "*"
+            elif mtype in ["LAST_NAME", "MIDDLE_NAME"]:  # Mask only these
+                for i in range(start, end):
+                    masked[i] = "*"
+            # FIRST_NAME is deliberately skipped
         return "".join(masked)
 
     def _pii_word_ratio(self, text: str, pii_matches: List[dict]) -> float:
@@ -180,11 +135,13 @@ class PIIDetectorRepository(IMLServiceRepository):
     def process(self, message: BotMessage) -> ServiceCheckResult:
         from entities.data import Violation, ViolationLevel
 
+        print("Processing message:", message)
         texts = [("question", message.question), ("answer", message.answer)]
         all_matches = []
         violations = []
         masked_answer = message.answer
         max_ratio = 0.0
+        censored_types = set()
         for field, text in texts:
             matches = []
             matches += self._find_phone(text)
@@ -199,34 +156,22 @@ class PIIDetectorRepository(IMLServiceRepository):
                     violations.append(
                         Violation(
                             violation_type=m["type"],
-                            level=ViolationLevel.HIGH
-                            if m["type"]
-                            in [
-                                "PASSPORT",
-                                "PASSPORT_SERIES",
-                                "PASSPORT_NUMBER",
-                                "PHONE",
-                            ]
-                            else ViolationLevel.MEDIUM,
+                            level=(
+                                ViolationLevel.HIGH
+                                if m["type"]
+                                in [
+                                    "PASSPORT",
+                                    "PASSPORT_SERIES",
+                                    "PASSPORT_NUMBER",
+                                    "PHONE",
+                                ]
+                                else ViolationLevel.MEDIUM
+                            ),
                         )
                     )
-            if field == "answer" and matches:
+                    censored_types.add(m["type"])
                 masked_answer = self._mask_text(text, matches)
         safe = not bool(all_matches)
-        score = int(max_ratio * 100)
+        score = int(max_ratio)
         actions = "mask" if not safe else "none"
         return ServiceCheckResult(safe=safe, score=score, masked_answer=masked_answer)
-
-
-if __name__ == "__main__":
-    from entities.data import BotMessage
-
-    # Интерактивный режим
-    question = input("Введите вопрос: ")
-    answer = input("Введите ответ: ")
-    message = BotMessage(question=question, answer=answer)
-    detector = PIIDetectorRepository()
-    result = detector.process(message)
-    print("Safe:", result.safe)
-    print("Score:", result.score)
-    print("Masked answer:", result.masked_answer)
