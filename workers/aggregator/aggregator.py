@@ -6,6 +6,7 @@ from typing import Dict, List
 
 from use_cases.ports.event_bus import EventBus, MessageHandler
 from use_cases.ports.db_connector import IDBRepository
+from use_cases.ports.event_bus import EventBus
 from use_cases.ports.ml_service import ILLMRewriteRepository
 from repositories.kafka_bus import KafkaEventBus
 from repositories.file_db import MongoResultRepository
@@ -32,11 +33,13 @@ class AggregatorService:
         self,
         repo: IDBRepository,
         rewriter: ILLMRewriteRepository,
+        bus: EventBus,
         checks: List[str] = ["pii", "safety", "ad", "off_topic"],
     ):
         self.repo = repo
         self.rewriter = rewriter
         self.checks = checks
+        self.bus = bus
         # in-memory buffer: request_id -> { check_type: ServiceCheckResult }
         self._pending: Dict[str, Dict[str, ServiceCheckResult]] = {}
 
@@ -53,7 +56,7 @@ class AggregatorService:
         if all(ct in bucket for ct in self.checks):
             parts = self._pending.pop(request_id)
             final = self._merge(parts)
-            await self.event_bus.publish(
+            await self.bus.publish(
                 topic="final-results", message=final, headers={"request_id": request_id}
             )
             self.repo.save(request_id, final)
@@ -196,7 +199,7 @@ async def main():
 
     # 3) instantiate service
     global aggregator
-    aggregator = AggregatorService(repo, rewriter)
+    aggregator = AggregatorService(repo, rewriter, bus)
 
     # 4) subscribe
     await bus.subscribe(
