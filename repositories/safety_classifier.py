@@ -1,4 +1,5 @@
 import torch
+import time
 import torch.nn.functional as F
 from entities.data import ServiceCheckResult, BotMessage
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
@@ -50,7 +51,7 @@ EN_LABELS = ["toxic", "obscene", "insult", "threat", "identity_hate"]
 RU_LABELS = ["non-toxic", "insult", "obscenity", "threat", "dangerous"]
 
 class SafetyClassifierRepository(IMLServiceRepository):
-    def __init__(self, mask: bool = False):
+    def __init__(self, mask: bool = True):
         self.mask = mask
 
     def mask_toxic_fragments(self, text: str, lang: str, threshold: float = 0.2) -> str:
@@ -95,7 +96,7 @@ class SafetyClassifierRepository(IMLServiceRepository):
                     logits = ru_model(**inputs).logits.squeeze()
                     probs = torch.sigmoid(logits).tolist()
                 score = max(probs[1:])
-                masked_words.append("***" if score > threshold else word)
+                masked_words.append("*" * len(word) if score > threshold else word)
 
         # Восстанавливаем защищённые фразы
         final = " ".join(masked_words)
@@ -146,11 +147,25 @@ def predict_toxicity_ru(text: str) -> dict:
 
 if __name__ == "__main__":
     test_messages = [
-        BotMessage(question="EN", answer="You're really improving. Keep going!"),
+        # English toxic
+        BotMessage(question="EN", answer="You are so stupid and worthless."),
+        BotMessage(question="EN", answer="You're such a fucking idiot."),
+        BotMessage(question="EN", answer="I hate you, you piece of shit."),
+
+        # Russian toxic
+        BotMessage(question="RU", answer="Ты дебил и ничтожество."),
+        BotMessage(question="RU", answer="Какой же ты ебанат, ужас просто."),
+        BotMessage(question="RU", answer="Ты блядь бесишь уже, иди нахуй."),
     ]
 
     classifier = SafetyClassifierRepository()
-    for msg in test_messages:
-        print(f"📝 {msg.answer}")
-        ans = classifier.process(msg)
-        print(ans)
+
+    for i, msg in enumerate(test_messages, start=1):
+        print(f"\n🔹 Test #{i}: {msg.answer}")
+        start_time = time.perf_counter()
+        result = classifier.process(msg)
+        elapsed = time.perf_counter() - start_time
+        print(f"✅ Safe: {result.safe}")
+        print(f"📉 Score: {result.score:.4f}")
+        print(f"🛡️ Masked: {result.masked_answer}")
+        print(f"⏱️ Time taken: {elapsed:.3f} sec")
