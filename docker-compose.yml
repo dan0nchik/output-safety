@@ -34,6 +34,7 @@ services:
   mongo:
     image: mongo:6.0
     restart: unless-stopped
+    container_name: mongo
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: example
@@ -49,9 +50,12 @@ services:
     build:
       context: .
       dockerfile: presentation/Dockerfile
+    container_name: api
     depends_on:
-      - kafka
-      - mongo
+      kafka:
+        condition: service_healthy
+      mongo:
+        condition: service_started
     ports:
       - "8000:8000"
     networks:
@@ -61,18 +65,20 @@ services:
 
   # ─── Aggregator ────────────────────────────────────────────────────────────────
   aggregator:
-      build:
-        context: .
-        dockerfile: workers/aggregator/Dockerfile
-      container_name: aggregator
-      depends_on:
-        - kafka
-        - mongo
-      restart: unless-stopped
-      env_file:
-        - .env
-      networks:
-      - backend
+    build:
+      context: .
+      dockerfile: workers/aggregator/Dockerfile
+    container_name: aggregator
+    depends_on:
+      kafka:
+        condition: service_healthy
+      mongo:
+        condition: service_started
+    restart: unless-stopped
+    env_file:
+      - .env
+    networks:
+    - backend
 
 volumes:
   mongo-data:
