@@ -1,5 +1,5 @@
 from enum import Enum, IntEnum
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel
 from pydantic.dataclasses import dataclass
@@ -55,14 +55,11 @@ class ServiceCheckResult(BaseModel):
 
 
 class FinalCheckResult(BaseModel):
-    """
-    Aggregated result after running all checks and decision engine.
-    """
-
-    safe: bool
+    final_verdict_safe: bool
     violations: Optional[List[Violation]]
-    score: float
+    # score: float
     masked_answer: str
+    all_checks: Dict[str, ServiceCheckResult]
 
 
 @dataclass(frozen=True)

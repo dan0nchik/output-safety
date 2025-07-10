@@ -50,31 +50,46 @@ class AggregatorService:
             print(f"[aggregator] Saved final result for {request_id}")
 
     def _merge(self, parts: Dict[str, ServiceCheckResult]) -> FinalCheckResult:
-        # overall safety = all parts safe
-        safe = all(p.safe for p in parts.values())
-        # take the highest score
-        score = max(p.score for p in parts.values())
-        # pick the first non-empty masked_answer
-        masked = next((p.masked_answer for p in parts.values() if p.masked_answer), "")
-        # collect violations for any failed part
+        final_safe = all(p.safe for p in parts.values())
+
+        # Merge all masked answers by overlaying masks over the original
+        # Start with the unmasked version from a 'safe' result if available
+        base_answer = next((p.masked_answer for p in parts.values() if p.safe), "")
+        if not base_answer:
+            # fallback: use any masked answer
+            base_answer = next(
+                (p.masked_answer for p in parts.values() if p.masked_answer), ""
+            )
+
+        # Create a character-wise mask over base_answer
+        composite = list(base_answer)
+        for part in parts.values():
+            for i, (orig_c, new_c) in enumerate(zip(base_answer, part.masked_answer)):
+                if new_c != orig_c:
+                    composite[i] = new_c
+
+        unified_masked_answer = "".join(composite)
+
         violations: List[Violation] = []
-        for check_type, p in parts.items():
-            if not p.safe:
+        for check_type, result in parts.items():
+            if not result.safe:
                 vt = getattr(ViolationType, check_type.upper(), None)
                 lvl = (
                     ViolationLevel.HIGH
-                    if p.score > 0.8
-                    else ViolationLevel.MEDIUM
-                    if p.score > 0.5
-                    else ViolationLevel.LOW
+                    if result.score > 0.8
+                    else (
+                        ViolationLevel.MEDIUM
+                        if result.score > 0.5
+                        else ViolationLevel.LOW
+                    )
                 )
-                violations.append(Violation(violation_type=vt, level=lvl))
+                violations.append(Violation(violation_type=vt.value, level=lvl))
 
         return FinalCheckResult(
-            safe=safe,
+            final_verdict_safe=final_safe,
             violations=violations,
-            score=score,
-            masked_answer=masked,
+            masked_answer=unified_masked_answer,
+            all_checks=parts,
         )
 
 
