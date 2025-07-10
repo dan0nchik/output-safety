@@ -65,70 +65,75 @@ class AggregatorService:
             return True
         return False
 
+    def _merge(self, parts: Dict[str, ServiceCheckResult]) -> FinalCheckResult:
+        final_safe = all(p.safe for p in parts.values())
+        violations: List[Violation] = []
 
-def _merge(self, parts: Dict[str, ServiceCheckResult]) -> FinalCheckResult:
-    final_safe = all(p.safe for p in parts.values())
-    violations: List[Violation] = []
+        ad_or_offtopic_unsafe = False
 
-    ad_or_offtopic_unsafe = False
+        for check_type, result in parts.items():
+            if not result.safe:
+                vt = getattr(ViolationType, check_type.upper(), None)
+                lvl = (
+                    ViolationLevel.HIGH
+                    if result.score > 0.8
+                    else (
+                        ViolationLevel.MEDIUM
+                        if result.score > 0.5
+                        else ViolationLevel.LOW
+                    )
+                )
+                violations.append(Violation(violation_type=vt.value, level=lvl))
+                if check_type in {"ad", "off_topic"}:
+                    ad_or_offtopic_unsafe = True
 
-    for check_type, result in parts.items():
-        if not result.safe:
-            vt = getattr(ViolationType, check_type.upper(), None)
-            lvl = (
-                ViolationLevel.HIGH
-                if result.score > 0.8
-                else ViolationLevel.MEDIUM if result.score > 0.5 else ViolationLevel.LOW
-            )
-            violations.append(Violation(violation_type=vt.value, level=lvl))
-            if check_type in {"ad", "off_topic"}:
-                ad_or_offtopic_unsafe = True
+        # Get any available answer (they all should use same original base)
+        base_answer = next(
+            (p.masked_answer for p in parts.values() if p.masked_answer), ""
+        )
 
-    # Get any available answer (they all should use same original base)
-    base_answer = next((p.masked_answer for p in parts.values() if p.masked_answer), "")
+        # Handle PII or SAFETY violations
+        pii_result = parts.get("pii")
+        safety_result = parts.get("safety")
+        pii_or_safety_failed = (pii_result and not pii_result.safe) or (
+            safety_result and not safety_result.safe
+        )
 
-    # Handle PII or SAFETY violations
-    pii_result = parts.get("pii")
-    safety_result = parts.get("safety")
-    pii_or_safety_failed = (pii_result and not pii_result.safe) or (
-        safety_result and not safety_result.safe
-    )
+        if pii_or_safety_failed:
+            cleaned = self._strip_masked_words(base_answer)
+            if ad_or_offtopic_unsafe:
+                rewritten = self._rewrite(cleaned)
+                return FinalCheckResult(
+                    final_verdict_safe=final_safe,
+                    violations=violations,
+                    masked_answer=rewritten or "[REWRITE_NEEDED]",
+                    all_checks=parts,
+                )
+            else:
+                return FinalCheckResult(
+                    final_verdict_safe=final_safe,
+                    violations=violations,
+                    masked_answer=cleaned,
+                    all_checks=parts,
+                )
 
-    if pii_or_safety_failed:
-        cleaned = self._strip_masked_words(base_answer)
+        # No PII/SAFETY issues, but AD or OFF_TOPIC fail
         if ad_or_offtopic_unsafe:
-            rewritten = self._rewrite(cleaned)
+            rewritten = self._rewrite(base_answer)
             return FinalCheckResult(
                 final_verdict_safe=final_safe,
                 violations=violations,
                 masked_answer=rewritten or "[REWRITE_NEEDED]",
                 all_checks=parts,
             )
-        else:
-            return FinalCheckResult(
-                final_verdict_safe=final_safe,
-                violations=violations,
-                masked_answer=cleaned,
-                all_checks=parts,
-            )
 
-    # No PII/SAFETY issues, but AD or OFF_TOPIC fail
-    if ad_or_offtopic_unsafe:
-        rewritten = self._rewrite(base_answer)
+        # Everything safe
         return FinalCheckResult(
             final_verdict_safe=final_safe,
             violations=violations,
-            masked_answer=rewritten or "[REWRITE_NEEDED]",
+            masked_answer=base_answer,
             all_checks=parts,
         )
-
-    # Everything safe
-    return FinalCheckResult(
-        final_verdict_safe=final_safe,
-        violations=violations,
-        masked_answer=base_answer,
-        all_checks=parts,
-    )
 
 
 # ———————— adapter + entrypoint —————————
