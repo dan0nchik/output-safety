@@ -132,12 +132,12 @@ services:
     build: ./fluentd
     container_name: fluentd
     depends_on:
-    kafka:
-      condition: service_healthy
-    graylog:
-      condition: service_started
-    mongo:
-      condition: service_started
+      kafka:
+        condition: service_healthy
+      graylog:
+        condition: service_started
+      mongo:
+        condition: service_started
     networks:
       - backend
 
