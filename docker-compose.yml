@@ -149,6 +149,13 @@ services:
     networks:
       - backend
 
+debug:
+  image: busybox
+  command: sh
+  stdin_open: true
+  tty: true
+  networks:
+    - backend
 
 
 volumes:
