@@ -172,6 +172,6 @@ class PIIDetectorRepository(IMLServiceRepository):
                     censored_types.add(m["type"])
                 masked_answer = self._mask_text(text, matches)
         safe = not bool(all_matches)
-        score = int(max_ratio)
+        score = max_ratio
         actions = "mask" if not safe else "none"
         return ServiceCheckResult(safe=safe, score=score, masked_answer=masked_answer)
