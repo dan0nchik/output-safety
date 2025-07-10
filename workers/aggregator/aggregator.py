@@ -51,19 +51,19 @@ class AggregatorService:
             print(f"[aggregator] Saved final result for {request_id}")
 
     @staticmethod
-    def _is_masked_word(word: str) -> bool:
-        if len(word) < 2:
+    def _strip_masked_words(text: str) -> str:
+        def is_masked(word: str) -> bool:
+            if len(word) < 2:
+                return False
+            if len(set(word)) == 1 and not word.isalnum():
+                return True
+            if word.upper() in {"[MASK]", "[REDACTED]"}:
+                return True
+            if re.fullmatch(r"[^a-zA-Z0-9]+", word) and len(word) > 3:
+                return True
             return False
-        # Repeated single character (e.g. "****", "xxxxx", "XXX")
-        if len(set(word)) == 1 and not word.isalnum():
-            return True
-        # Fully masked patterns (e.g. "********", "[MASK]", "[REDACTED]")
-        if word.upper() in {"[MASK]", "[REDACTED]"}:
-            return True
-        # Long strings of non-letters/numbers
-        if re.fullmatch(r"[^a-zA-Z0-9]+", word) and len(word) > 3:
-            return True
-        return False
+
+        return " ".join(w for w in text.split() if not is_masked(w))
 
     def _merge(self, parts: Dict[str, ServiceCheckResult]) -> FinalCheckResult:
         final_safe = all(p.safe for p in parts.values())
