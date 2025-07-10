@@ -47,29 +47,19 @@ class PIIDetectorRepository(IMLServiceRepository):
 
     def _find_fio(self, text: str) -> List[dict]:
         results = self._ner_pipe(text)
-        print("NER results:", results)  # Для отладки
         found = []
-        start = None
-        end = None
+        # Собираем только отчество
         for res in results:
-            if any(tag in res['entity'] for tag in ['LAST_NAME', 'FIRST_NAME', 'MIDDLE_NAME']):
-                if start is None:
-                    start = res['start']
-                end = res['end']
-            else:
-                if start is not None and end is not None:
-                    found.append({'type': 'FIO', 'match': text[start:end], 'span': (start, end)})
-                    start = None
-                    end = None
-        if start is not None and end is not None:
-            found.append({'type': 'FIO', 'match': text[start:end], 'span': (start, end)})
+            # В некоторых моделях entity может быть U-MIDDLE_NAME или MIDDLE_NAME
+            if 'MIDDLE_NAME' in res['entity']:
+                found.append({'type': 'FIO_MIDDLE_NAME', 'match': text[res['start']:res['end']], 'span': (res['start'], res['end'])})
         return found
 
     def _mask_text(self, text: str, pii_matches: List[dict]) -> str:
         masked = list(text)
         for match in pii_matches:
             start, end = match['span']
-            if match['type'] == 'PASSPORT' or match['type'] == 'PASSPORT_SERIES' or match['type'] == 'PASSPORT_NUMBER':
+            if match['type'] in ['PASSPORT', 'PASSPORT_SERIES', 'PASSPORT_NUMBER']:
                 for i in range(start, end):
                     masked[i] = 'X'
             elif match['type'] == 'PHONE':
@@ -81,7 +71,7 @@ class PIIDetectorRepository(IMLServiceRepository):
             elif match['type'] == 'EMAIL':
                 for i in range(start, end):
                     masked[i] = 'x'
-            elif match['type'] == 'FIO':
+            elif match['type'] == 'FIO_MIDDLE_NAME':
                 for i in range(start, end):
                     masked[i] = '*'
         return ''.join(masked)
@@ -104,6 +94,7 @@ class PIIDetectorRepository(IMLServiceRepository):
         violations = []
         masked_answer = message.answer
         max_ratio = 0.0
+        censored_types = set()
         for field, text in texts:
             matches = []
             matches += self._find_phone(text)
@@ -119,15 +110,18 @@ class PIIDetectorRepository(IMLServiceRepository):
                         violation_type=m['type'],
                         level=ViolationLevel.HIGH if m['type'] in ['PASSPORT', 'PASSPORT_SERIES', 'PASSPORT_NUMBER', 'PHONE'] else ViolationLevel.MEDIUM
                     ))
+                    censored_types.add(m['type'])
             if field == 'answer' and matches:
                 masked_answer = self._mask_text(text, matches)
         safe = not bool(all_matches)
         score = int(max_ratio * 100)
         actions = 'mask' if not safe else 'none'
+        # Возвращаем также список сущностей, которые были зацензурены
         return ServiceCheckResult(
             safe=safe,
             score=score,
-            masked_answer=masked_answer
+            masked_answer=masked_answer,
+            censored_entities=sorted(list(censored_types))
         )
 
 
@@ -145,4 +139,16 @@ if __name__ == "__main__":
     print("Safe:", result.safe)
     print("Score:", result.score)
     print("Masked answer:", result.masked_answer)
+    if hasattr(result, 'censored_entities'):
+        # Преобразуем типы к более читаемым
+        type_map = {
+            'FIO_MIDDLE_NAME': 'ОТЧЕСТВО',
+            'PASSPORT': 'ПАСПОРТ',
+            'PASSPORT_SERIES': 'ПАСПОРТ',
+            'PASSPORT_NUMBER': 'ПАСПОРТ',
+            'PHONE': 'ТЕЛЕФОН',
+            'EMAIL': 'EMAIL',
+        }
+        readable = [type_map.get(t, t) for t in result.censored_entities]
+        print("выделены сущности:", ', '.join(readable))
 

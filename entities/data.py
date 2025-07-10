@@ -43,6 +43,7 @@ class ServiceCheckResult:
     safe: bool
     score: int
     masked_answer: str
+    censored_entities: Optional[List[str]] = None
 
 
 # final result after decision engine
