@@ -2,3 +2,4 @@ aiokafka
 pydantic
 pymongo
 pydantic-settings
+gigachat
