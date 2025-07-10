@@ -13,6 +13,7 @@ PIPELINE:
 5. Running TF-IDF + linear classification (cheching 3 categories)
 """
 
+
 class AdFilterRepository(IMLServiceRepository):
     def __init__(self, model_path: str):
         self.filename = model_path

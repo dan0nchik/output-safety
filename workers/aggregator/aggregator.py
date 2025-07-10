@@ -6,7 +6,7 @@ from typing import Dict, List
 from use_cases.ports.event_bus import EventBus, MessageHandler
 from use_cases.ports.db_connector import IDBRepository
 from repositories.kafka_bus import KafkaEventBus
-from repositories.file_db import FileResultRepository
+from repositories.file_db import MongoResultRepository
 from config import settings
 from entities.data import (
     ServiceCheckResult,
@@ -64,7 +64,9 @@ class AggregatorService:
                 lvl = (
                     ViolationLevel.HIGH
                     if p.score > 0.8
-                    else ViolationLevel.MEDIUM if p.score > 0.5 else ViolationLevel.LOW
+                    else ViolationLevel.MEDIUM
+                    if p.score > 0.5
+                    else ViolationLevel.LOW
                 )
                 violations.append(Violation(violation_type=vt, level=lvl))
 
@@ -93,7 +95,7 @@ async def main():
     bus: EventBus = KafkaEventBus(brokers=settings.kafka_brokers)
 
     # 2) choose persistence adapter
-    repo: IDBRepository = FileResultRepository(directory="results")
+    repo: IDBRepository = MongoResultRepository(mongo_uri=settings.mongo_uri)
 
     # 3) instantiate service
     global aggregator

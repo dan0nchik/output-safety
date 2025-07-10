@@ -60,7 +60,7 @@ class FinalCheckResult(BaseModel):
     """
 
     safe: bool
-    violations: List[Violation]
+    violations: Optional[List[Violation]]
     score: float
     masked_answer: str
 
