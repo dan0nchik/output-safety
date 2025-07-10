@@ -15,7 +15,7 @@ def get_check_use_case() -> CheckMessageUseCase:
     pii = PIIDetectorRepository()
     safety = SafetyClassifierRepository()
     ad = AdFilterRepository()
-    off_topic = OffTopicRepository()
+    off_topic = OffTopicRepository(settings.off_topic_model_name)
     llm_rewrite = OllamaRewriteRepository()
     llm_request = LLMRequest(
         prompt=settings.ollama_prompt,

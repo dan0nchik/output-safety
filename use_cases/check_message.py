@@ -22,4 +22,5 @@ class CheckMessageUseCase:
     def execute(self, message: BotMessage) -> FinalCheckResult:
         # TODO проверка decision engine
         llm_check = self.llm_rewrite.process(message, self.llm_request)
+        off_topic_check = self.off_topic.process(message)
         return FinalCheckResult(True, [], 0, "")
