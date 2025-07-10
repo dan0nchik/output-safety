@@ -24,7 +24,7 @@ class KafkaEventBus(EventBus):
         producer = await self._get_producer()
         await producer.send_and_wait(
             topic,
-            message.dict(),
+            message.model_dump(),
             headers=[(k, str(v).encode()) for k, v in headers.items()],
         )
 
