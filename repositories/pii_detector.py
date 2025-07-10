@@ -74,54 +74,51 @@ class PIIDetectorRepository(IMLServiceRepository):
 
     def _find_fio(self, text: str) -> List[dict]:
         results = self._ner_pipe(text)
-        print("NER results:", results)  # Для отладки
+        print("NER results:", results)  # For debugging
+
         found = []
-        start = None
-        end = None
+        current = None
+
         for res in results:
-            if any(
-                tag in res["entity"]
-                for tag in ["LAST_NAME", "FIRST_NAME", "MIDDLE_NAME"]
-            ):
-                if start is None:
-                    start = res["start"]
-                end = res["end"]
+            tag = res["entity"].replace("U-", "").replace("B-", "").replace("I-", "")
+            word = res["word"]
+            start = res["start"]
+            end = res["end"]
+
+            if word.startswith("##") and current:
+                current["match"] += word[2:]
+                current["span"] = (current["span"][0], end)
             else:
-                if start is not None and end is not None:
-                    found.append(
-                        {"type": "FIO", "match": text[start:end], "span": (start, end)}
-                    )
-                    start = None
-                    end = None
-        if start is not None and end is not None:
-            found.append(
-                {"type": "FIO", "match": text[start:end], "span": (start, end)}
-            )
+                # Push previous match if any
+                if current:
+                    found.append(current)
+                if tag in ["FIRST_NAME", "LAST_NAME", "MIDDLE_NAME"]:
+                    current = {"type": tag, "match": word, "span": (start, end)}
+                else:
+                    current = None
+
+        # Final entity
+        if current:
+            found.append(current)
+
         return found
 
     def _mask_text(self, text: str, pii_matches: List[dict]) -> str:
         masked = list(text)
         for match in pii_matches:
             start, end = match["span"]
-            if (
-                match["type"] == "PASSPORT"
-                or match["type"] == "PASSPORT_SERIES"
-                or match["type"] == "PASSPORT_NUMBER"
-            ):
-                for i in range(start, end):
-                    masked[i] = "X"
-            elif match["type"] == "PHONE":
-                phone_text = match["match"]
-                phone_start = text.find(phone_text, start)
-                if phone_start != -1:
-                    for i in range(phone_start, phone_start + len(phone_text)):
-                        masked[i] = "X"
-            elif match["type"] == "EMAIL":
-                for i in range(start, end):
-                    masked[i] = "x"
-            elif match["type"] == "FIO":
+            mtype = match["type"]
+
+            if mtype in ["PASSPORT", "PASSPORT_SERIES", "PASSPORT_NUMBER", "PHONE"]:
                 for i in range(start, end):
                     masked[i] = "*"
+            elif mtype == "EMAIL":
+                for i in range(start, end):
+                    masked[i] = "*"
+            elif mtype in ["LAST_NAME", "MIDDLE_NAME"]:  # Mask only these
+                for i in range(start, end):
+                    masked[i] = "*"
+            # FIRST_NAME is deliberately skipped
         return "".join(masked)
 
     def _pii_word_ratio(self, text: str, pii_matches: List[dict]) -> float:
@@ -174,7 +171,7 @@ class PIIDetectorRepository(IMLServiceRepository):
             if field == "answer" and matches:
                 masked_answer = self._mask_text(text, matches)
         safe = not bool(all_matches)
-        score = int(max_ratio * 100)
+        score = int(max_ratio)
         actions = "mask" if not safe else "none"
         return ServiceCheckResult(safe=safe, score=score, masked_answer=masked_answer)
 
