@@ -141,6 +141,7 @@ class PIIDetectorRepository(IMLServiceRepository):
         violations = []
         masked_answer = message.answer
         max_ratio = 0.0
+        censored_types = set()
         for field, text in texts:
             matches = []
             matches += self._find_phone(text)
@@ -168,23 +169,9 @@ class PIIDetectorRepository(IMLServiceRepository):
                             ),
                         )
                     )
-            if field == "answer" and matches:
+                    censored_types.add(m["type"])
                 masked_answer = self._mask_text(text, matches)
         safe = not bool(all_matches)
         score = int(max_ratio)
         actions = "mask" if not safe else "none"
         return ServiceCheckResult(safe=safe, score=score, masked_answer=masked_answer)
-
-
-if __name__ == "__main__":
-    from entities.data import BotMessage
-
-    # Интерактивный режим
-    question = input("Введите вопрос: ")
-    answer = input("Введите ответ: ")
-    message = BotMessage(question=question, answer=answer)
-    detector = PIIDetectorRepository()
-    result = detector.process(message)
-    print("Safe:", result.safe)
-    print("Score:", result.score)
-    print("Masked answer:", result.masked_answer)
