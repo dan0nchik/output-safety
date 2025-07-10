@@ -50,6 +50,7 @@ class AggregatorService:
             self.repo.save(request_id, final)
             print(f"[aggregator] Saved final result for {request_id}")
 
+    @staticmethod
     def _is_masked_word(word: str) -> bool:
         if len(word) < 2:
             return False
