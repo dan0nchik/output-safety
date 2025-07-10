@@ -11,7 +11,7 @@ async def handle(message: BotMessage, headers: dict):
 
     result: ServiceCheckResult = OffTopicRepository(
         settings.off_topic_model_name
-    ).process(message)
+    ).process(BotMessage(**message))
 
     await bus.publish(
         topic="check-results",

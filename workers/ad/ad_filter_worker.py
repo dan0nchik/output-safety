@@ -16,7 +16,7 @@ async def handle_ad(message: BotMessage, headers: dict):
     # run the AdFilter adapter
     result: ServiceCheckResult = AdFilterRepository(
         settings.ad_filter_model_name
-    ).process(message)
+    ).process(BotMessage(**message))
 
     # publish the partial result back to Kafka
     await bus.publish(

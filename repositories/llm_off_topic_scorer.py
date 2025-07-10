@@ -59,4 +59,6 @@ class LLMOffTopicRepository(IMLServiceRepository):
             except Exception as exc:
                 error = f"Неожиданная ошибка при обработке ответа LLM: {str(exc)}"
 
-        return ServiceCheckResult(is_safe, score, message.answer, error)
+        return ServiceCheckResult(
+            safe=is_safe, score=score, masked_answer=message.answer, error=error
+        )

@@ -2,6 +2,7 @@ from entities.data import LLMRewriteResult, BotMessage, LLMRequest
 from use_cases.ports.ml_service import ILLMRewriteRepository
 from gigachat import GigaChat
 
+
 class GigachatRewriteRepository(ILLMRewriteRepository):
     def __init__(self):
         self.final_prompt = ""

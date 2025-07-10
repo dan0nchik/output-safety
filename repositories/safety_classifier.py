@@ -144,7 +144,9 @@ class SafetyClassifierRepository(IMLServiceRepository):
             masked_message = self.mask_toxic_fragments(txt, lang)
         elif not (safe) and not (self.mask):
             masked_message = "Извини, не могу помочь тебе с этим вопросом"
-        return ServiceCheckResult(safe, tox_score, masked_message)
+        return ServiceCheckResult(
+            safe=safe, score=tox_score, masked_answer=masked_message
+        )
 
 
 def is_safe(score) -> bool:
