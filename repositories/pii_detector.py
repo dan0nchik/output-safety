@@ -174,4 +174,4 @@ class PIIDetectorRepository(IMLServiceRepository):
         safe = not bool(all_matches)
         score = max_ratio
         actions = "mask" if not safe else "none"
-        return ServiceCheckResult(safe=safe, score=score, masked_answer=masked_answer)
+        return ServiceCheckResult(safe=safe, score=score, masked_answer=masked_answer, question=message.question)

@@ -46,5 +46,5 @@ class OffTopicRepository(IMLServiceRepository):
         is_safe = score >= 0.5
 
         return ServiceCheckResult(
-            safe=is_safe, score=score, masked_answer=message.answer
+            safe=is_safe, score=score, masked_answer=message.answer, question=message.question
         )

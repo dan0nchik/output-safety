@@ -53,6 +53,7 @@ class ServiceCheckResult(BaseModel):
     safe: bool
     score: float
     masked_answer: str
+    question: str
     censored_entities: Optional[List[str]] = None
     error: Optional[str] = None
 

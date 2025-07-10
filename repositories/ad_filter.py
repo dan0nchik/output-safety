@@ -24,4 +24,4 @@ class AdFilterRepository(IMLServiceRepository):
         text = message.answer or ""
         proba = float(self.model.predict_proba([text])[0, 1])
         label = 0 if proba >= 0.5 else 1
-        return ServiceCheckResult(safe=label, score=proba, masked_answer=message.answer)
+        return ServiceCheckResult(safe=label, score=proba, masked_answer=message.answer, question=message.question)

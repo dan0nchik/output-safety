@@ -71,7 +71,7 @@ class AggregatorService:
 
         return " ".join(w for w in text.split() if not is_masked(w))
 
-    def _rewrite(self, masked_text: str, problems: list[str]) -> str:
+    def _rewrite(self, masked_text: str, problems: list[str], question: str) -> str:
         """
         Use the LLM to rewrite the text, handling any exceptions.
         Returns the rewritten text or a placeholder if it fails.
@@ -80,8 +80,9 @@ class AggregatorService:
         problems_str = ", ".join(problem_map[p] for p in problems if p in problem_map)
         prompt = (
             f"В данном тексте (в тэге <TEXT>) следующие проблемы: {problems_str}. "
-            f"Перепиши текст, исправив ошибки. Верни результат в тэге <RES>. "
+            f"Перепиши текст, исправив ошибки и отвечая на вопрос, содержащийся в тэге <QUESTION>. Верни результат в тэге <RES>. "
             f"<TEXT>{masked_text}</TEXT>"
+            f"<QUESTION>{question}</QUESTION>"
         )
         try:
             llm_request: LLMRequest = LLMRequest(
@@ -101,7 +102,9 @@ class AggregatorService:
         ad_or_offtopic_unsafe = False
         failed_checks = []
 
+        question = ""
         for check_type, result in parts.items():
+            question = result.question
             if not result.safe:
                 vt = getattr(ViolationType, check_type.upper(), None)
                 lvl = (
@@ -133,7 +136,7 @@ class AggregatorService:
         if pii_or_safety_failed:
             cleaned = self._strip_masked_words(base_answer)
             if ad_or_offtopic_unsafe:
-                rewritten = self._rewrite(cleaned, failed_checks)
+                rewritten = self._rewrite(cleaned, failed_checks, question)
                 return FinalCheckResult(
                     final_verdict_safe=final_safe,
                     violations=violations,
@@ -150,7 +153,7 @@ class AggregatorService:
 
         # No PII/SAFETY issues, but AD or OFF_TOPIC fail
         if ad_or_offtopic_unsafe:
-            rewritten = self._rewrite(base_answer, failed_checks)
+            rewritten = self._rewrite(base_answer, failed_checks, question)
             return FinalCheckResult(
                 final_verdict_safe=final_safe,
                 violations=violations,
