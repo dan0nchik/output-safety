@@ -131,7 +131,7 @@ services:
   fluentd:
     build: ./fluentd
     depends_on:
-      - mongodb
+      - mongo
       - graylog
     networks:
       - backend
