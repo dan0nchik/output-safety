@@ -65,6 +65,10 @@ class FinalCheckResult(BaseModel):
     all_checks: Dict[str, ServiceCheckResult]
 
 
+class LLMRewriteResult(BaseModel):
+    answer: str
+
+
 @dataclass(frozen=True)
 class LLMRequest:
     """
