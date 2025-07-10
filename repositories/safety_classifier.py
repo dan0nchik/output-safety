@@ -145,7 +145,10 @@ class SafetyClassifierRepository(IMLServiceRepository):
         elif not (safe) and not (self.mask):
             masked_message = "Извини, не могу помочь тебе с этим вопросом"
         return ServiceCheckResult(
-            safe=safe, score=tox_score, masked_answer=masked_message, question=message.question
+            safe=safe,
+            score=tox_score,
+            masked_answer=masked_message,
+            question=message.question,
         )
 
 
