@@ -65,59 +65,70 @@ class AggregatorService:
             return True
         return False
 
-    def _merge(self, parts: Dict[str, ServiceCheckResult]) -> FinalCheckResult:
-        final_safe = all(p.safe for p in parts.values())
 
-        violations: List[Violation] = []
-        ad_or_offtopic_unsafe = False
+def _merge(self, parts: Dict[str, ServiceCheckResult]) -> FinalCheckResult:
+    final_safe = all(p.safe for p in parts.values())
+    violations: List[Violation] = []
 
-        # Collect violations and see if ad or off_topic failed
-        for check_type, result in parts.items():
-            if not result.safe:
-                vt = getattr(ViolationType, check_type.upper(), None)
-                lvl = (
-                    ViolationLevel.HIGH
-                    if result.score > 0.8
-                    else (
-                        ViolationLevel.MEDIUM
-                        if result.score > 0.5
-                        else ViolationLevel.LOW
-                    )
-                )
-                violations.append(Violation(violation_type=vt.value, level=lvl))
-                if check_type in {"ad", "off_topic"}:
-                    ad_or_offtopic_unsafe = True
+    ad_or_offtopic_unsafe = False
 
-        # Handle masking for PII and Safety
-        pii_result = parts.get("pii")
-        safety_result = parts.get("safety")
+    for check_type, result in parts.items():
+        if not result.safe:
+            vt = getattr(ViolationType, check_type.upper(), None)
+            lvl = (
+                ViolationLevel.HIGH
+                if result.score > 0.8
+                else ViolationLevel.MEDIUM if result.score > 0.5 else ViolationLevel.LOW
+            )
+            violations.append(Violation(violation_type=vt.value, level=lvl))
+            if check_type in {"ad", "off_topic"}:
+                ad_or_offtopic_unsafe = True
 
-        if pii_result or safety_result:
-            pii_words = pii_result.masked_answer.split() if pii_result else []
-            safety_words = safety_result.masked_answer.split() if safety_result else []
-            max_len = max(len(pii_words), len(safety_words))
+    # Get any available answer (they all should use same original base)
+    base_answer = next((p.masked_answer for p in parts.values() if p.masked_answer), "")
 
-            unified_words = []
-            for i in range(max_len):
-                pw = pii_words[i] if i < len(pii_words) else ""
-                sw = safety_words[i] if i < len(safety_words) else ""
+    # Handle PII or SAFETY violations
+    pii_result = parts.get("pii")
+    safety_result = parts.get("safety")
+    pii_or_safety_failed = (pii_result and not pii_result.safe) or (
+        safety_result and not safety_result.safe
+    )
 
-                if self._is_masked_word(pw) or self._is_masked_word(sw):
-                    continue  # Drop censored word
-                unified_words.append(pw or sw)
-
-            unified_masked_answer = " ".join(unified_words)
-
-        # If ad or off_topic were unsafe, force rewrite
+    if pii_or_safety_failed:
+        cleaned = self._strip_masked_words(base_answer)
         if ad_or_offtopic_unsafe:
-            unified_masked_answer = "[REWRITE_NEEDED]"
+            rewritten = self._rewrite(cleaned)
+            return FinalCheckResult(
+                final_verdict_safe=final_safe,
+                violations=violations,
+                masked_answer=rewritten or "[REWRITE_NEEDED]",
+                all_checks=parts,
+            )
+        else:
+            return FinalCheckResult(
+                final_verdict_safe=final_safe,
+                violations=violations,
+                masked_answer=cleaned,
+                all_checks=parts,
+            )
 
+    # No PII/SAFETY issues, but AD or OFF_TOPIC fail
+    if ad_or_offtopic_unsafe:
+        rewritten = self._rewrite(base_answer)
         return FinalCheckResult(
             final_verdict_safe=final_safe,
             violations=violations,
-            masked_answer=unified_masked_answer,
+            masked_answer=rewritten or "[REWRITE_NEEDED]",
             all_checks=parts,
         )
+
+    # Everything safe
+    return FinalCheckResult(
+        final_verdict_safe=final_safe,
+        violations=violations,
+        masked_answer=base_answer,
+        all_checks=parts,
+    )
 
 
 # ———————— adapter + entrypoint —————————
