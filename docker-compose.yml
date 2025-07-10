@@ -98,30 +98,6 @@ services:
     networks:
       - backend
 
-  # ─── OpenSearch ────────────────────────────────────────────────────────────────
-  opensearch:
-    ports:
-      - '9200:9200'
-    image: 'opensearchproject/opensearch:2.12.0'
-    container_name: opensearch
-    environment:
-      - cluster.name=opensearch-cluster
-      - node.name=opensearch
-      - discovery.type=single-node
-      - bootstrap.memory_lock=true
-      - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"
-      - "DISABLE_INSTALL_DEMO_CONFIG=true"
-      - "DISABLE_SECURITY_PLUGIN=true"
-    ulimits:
-      memlock:
-        soft: -1
-        hard: -1
-    volumes:
-      - 'opensearch-data:/usr/share/opensearch/data'
-    restart: always
-    networks:
-      - backend
-
   # ─── Graylog 6.1 ────────────────────────────────────────────────────────────────
   graylog:
     image: "${GRAYLOG_IMAGE:-graylog/graylog:6.1}"
