@@ -1,6 +1,7 @@
 # presentation/api.py
 from fastapi import FastAPI, Depends, HTTPException
-from entities.data import BotMessage
+from entities.data import BotMessage, FinalCheckResult
+from repositories.file_db import MongoResultRepository
 from use_cases.check_message import CheckMessageUseCase
 from use_cases.ports.event_bus import EventBus
 from repositories.kafka_bus import KafkaEventBus
@@ -28,3 +29,12 @@ async def check_endpoint(
     except Exception as e:
         # send real error in dev; hide in prod
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/result/{request_id}", response_model=FinalCheckResult)
+async def get_result(request_id: str):
+    repo = MongoResultRepository(mongo_uri=settings.mongo_uri)
+    doc = repo.collection.find_one({"request_id": request_id})
+    if not doc or "result" not in doc:
+        raise HTTPException(status_code=404, detail="Result not found")
+    return doc["result"]
