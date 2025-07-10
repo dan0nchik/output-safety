@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from enum import Enum, IntEnum
 from typing import List, Optional
 
@@ -52,6 +53,7 @@ class ServiceCheckResult(BaseModel):
     safe: bool
     score: float
     masked_answer: str
+    error: Optional[str]
 
 
 class FinalCheckResult(BaseModel):
