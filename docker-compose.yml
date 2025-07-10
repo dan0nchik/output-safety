@@ -113,7 +113,7 @@ services:
 
   # ─── Redash ────────────────────────────────────────────────────────────
   redash:
-    image: redash/redash:10.0.0.b50391   # или latest
+    image: redash/redash:latest   # или latest
     container_name: redash
     restart: unless-stopped
     ports:
