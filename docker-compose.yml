@@ -4,6 +4,7 @@ services:
   # ─── Zookeeper ──────────────────────────────────────────────────────────
   zookeeper:
     image: confluentinc/cp-zookeeper:7.4.1
+    container_name: zookeeper
     ports:
       - "2181:2181"
     environment:
@@ -15,6 +16,7 @@ services:
   # ─── Kafka ──────────────────────────────────────────────────────────────
   kafka:
     image: confluentinc/cp-kafka:7.4.1
+    container_name: mongo
     depends_on:
       - zookeeper
     ports:
