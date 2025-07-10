@@ -152,7 +152,6 @@ services:
         hard: 65536
     ports:
       - "8999:8999/tcp"
-      - "9200:9200/tcp"
       - "9300:9300/tcp"
     networks:
       - backend
