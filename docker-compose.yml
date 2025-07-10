@@ -16,7 +16,7 @@ services:
   # ─── Kafka ──────────────────────────────────────────────────────────────
   kafka:
     image: confluentinc/cp-kafka:7.4.1
-    container_name: mongo
+    container_name: kafka
     depends_on:
       - zookeeper
     ports:
