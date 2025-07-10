@@ -1,0 +1,12 @@
+filebeat.inputs:
+- type: log
+  enabled: true
+  paths:
+    - /var/log/syslog
+   
+output.kafka:
+  hosts: ["kafka:9092"] # Replace with your Kafka host(s)
+  topic: 'final-results' # Name of the Kafka topic
+  codec.json:
+    pretty: false
+    preset: balanced
