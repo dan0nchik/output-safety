@@ -153,7 +153,9 @@ class AggregatorService:
                 return FinalCheckResult(
                     final_verdict_safe=final_safe,
                     violations=violations,
-                    masked_answer=cleaned,
+                    masked_answer=(
+                        cleaned if len(cleaned) > 0 else "Извини, не понял тебя"
+                    ),
                     all_checks=parts,
                 )
 
