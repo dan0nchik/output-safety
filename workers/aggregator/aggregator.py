@@ -85,10 +85,10 @@ class AggregatorService:
         problem_map = {"ad": "реклама", "off_topic": "несоответсвие теме"}
         problems_str = ", ".join(problem_map[p] for p in problems if p in problem_map)
         prompt = (
-            f"В данном тексте (в тэге <TEXT>) следующие проблемы: {problems_str}. "
-            f"Перепиши текст, исправив ошибки и отвечая на запрос, содержащийся в тэге <QUESTION>. Если в запросе нет смысла, ответь 'Извини, не понял тебя' Верни результат в тэге <RES>...</RES> "
-            f"<QUESTION>{question}</QUESTION>"
-            f"<TEXT>{masked_text}</TEXT>"
+            f"В данном тексте (в тэге <TEXT>) следующие проблемы: {problems_str}.\n\n"
+            f"Перепиши текст, исправив ошибки и отвечая на запрос, содержащийся в тэге <QUESTION>. Если в запросе нет смысла, ответь 'Извини, не понял тебя' \n\n\n ВЫВОДИ ФИНАЛЬНЫЙ ОТВЕТ в тэге <RES>...</RES> "
+            f"\n\n<QUESTION>{question}</QUESTION>"
+            f"\n\n<TEXT>{masked_text}</TEXT>"
         )
         try:
             llm_request: LLMRequest = LLMRequest(
