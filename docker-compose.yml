@@ -39,7 +39,7 @@ services:
 
   # ─── MongoDB ─────────────────────────────────────────────────────────────
   mongo:
-    image: mongo:4.4
+    image: mongo:5.0
     restart: unless-stopped
     container_name: mongo
     environment:
