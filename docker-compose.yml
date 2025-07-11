@@ -87,50 +87,8 @@ services:
     networks:
       - backend
 
-  # ─── PostgreSQL для Redash ──────────────────────────────────────────────
-  postgres:
-    image: postgres:13
-    container_name: redash-postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: redash
-      POSTGRES_PASSWORD: redash_pass
-      POSTGRES_DB: redash
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-    networks:
-      - backend
-
-  # ─── Redis для Redash ───────────────────────────────────────────────────
-  redis:
-    image: redis:6
-    container_name: redash-redis
-    restart: unless-stopped
-    volumes:
-      - redis-data:/data
-    networks:
-      - backend
-
-  # ─── Redash ────────────────────────────────────────────────────────────
-  redash:
-    image: redash/redash:latest   # или latest
-    container_name: redash
-    restart: unless-stopped
-    ports:
-      - "5000:5000"
-    environment:
-      REDASH_DATABASE_URL: "postgresql://redash:redash_pass@postgres/redash"
-      REDASH_REDIS_URL: "redis://redis:6379/0"
-    depends_on:
-      - postgres
-      - redis
-    networks:
-      - backend
-
 volumes:
   mongo-data:
-  postgres-data:
-  redis-data:
 
 networks:
   backend:
